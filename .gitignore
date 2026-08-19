@@ -1,0 +1,48 @@
+# Dependencies and node packages
+**/node_modules/
+**/dist/
+**/dist-ssr/
+
+# Local databases and caches
+n8n_data/
+.scannerwork/
+*.log
+logs
+*.log*
+
+# Environment files and credentials
+.env
+.env.*
+*.env
+Your Client ID and Your Client Secret.txt
+client_secret_*.json
+client_secret.json
+
+# Go executables
+backend/main
+backend/main.exe
+backend/youpace
+backend/youpace.exe
+backend/youpace_test
+backend/youpace_test.exe
+backend/yourpace-backend
+backend/yourpace-backend.exe
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Uploaded contents
+backend/uploads/
+
+# IDE files
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.DS_Store
+Thumbs.db

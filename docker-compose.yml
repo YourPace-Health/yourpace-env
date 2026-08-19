@@ -1,0 +1,116 @@
+services:
+  # Database Service (PostgreSQL)
+  db:
+    image: postgres:15-alpine
+    container_name: youpace_db
+    restart: always
+    environment:
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: password123
+      POSTGRES_DB: youPace_DB
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  # Cache Service (Redis)
+  redis:
+    image: redis:7-alpine
+    container_name: youpace_redis
+    restart: always
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis_data:/data
+
+  # Backend Service (Go API)
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: youpace_backend
+    restart: always
+    ports:
+      - "8081:8080"
+    environment:
+      PORT: 8080
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: root
+      DB_PASSWORD: password123
+      DB_NAME: youPace_DB
+      DB_SSLMODE: disable
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      JWT_SECRET: uV9yK3j5YhN8Lx2QpW7eZ0rJtB6nMfLgSxAaCdEfGhI=
+      N8N_URL: http://n8n:5678/webhook/yourpace-ai
+      GEMINI_API_KEY: ""
+      GEMINI_URL: https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent
+    depends_on:
+      - db
+      - redis
+
+  # Frontend Service (Vite + React / Nginx)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: youpace_frontend
+    restart: always
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+
+  # Automation service (n8n)
+  n8n:
+    image: docker.n8n.io/n8nio/n8n
+    container_name: n8n
+    restart: always
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_HOST=localhost
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=http
+      - NODE_ENV=production
+      - WEBHOOK_URL=http://localhost:5678/
+    volumes:
+      - ./n8n_data:/home/node/.n8n
+
+  # Jenkins CI/CD Service
+  jenkins:
+    build:
+      context: .
+      dockerfile: Dockerfile.jenkins
+    container_name: youpace_jenkins
+    user: root
+    restart: always
+    ports:
+      - "8085:8080"
+      - "50000:50000"
+    volumes:
+      - jenkins_data:/var/jenkins_home
+      - /var/run/docker.sock:/var/run/docker.sock
+      - .:/var/jenkins_home/workspace/yourpace-cicd
+
+  sonarqube:
+    image: sonarqube:community
+    container_name: youpace_sonarqube
+    restart: always
+    ports:
+      - "9005:9000"
+    environment:
+      - SONAR_ES_BOOTSTRAP_CHECKS_DISABLE=true
+    volumes:
+      - sonarqube_data:/opt/sonarqube/data
+      - sonarqube_extensions:/opt/sonarqube/extensions
+      - sonarqube_logs:/opt/sonarqube/logs
+
+volumes:
+  postgres_data:
+  redis_data:
+  jenkins_data:
+  sonarqube_data:
+  sonarqube_extensions:
+  sonarqube_logs:
