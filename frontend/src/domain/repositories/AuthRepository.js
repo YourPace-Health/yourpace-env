@@ -6,7 +6,7 @@
  * เลเยอร์ Data จะเป็นผู้ทำหน้าที่ประยุกต์ใช้งาน (Implementation) ของ Interface นี้
  */
 export class AuthRepository {
-  async loginWithEmail(email, password, staySignedIn) {
+  async loginWithEmail(_email, _password, _staySignedIn) {
     throw new Error("Method 'loginWithEmail()' must be implemented");
   }
 
@@ -14,11 +14,15 @@ export class AuthRepository {
     throw new Error("Method 'loginWithGoogle()' must be implemented");
   }
 
-  async requestMagicLink(email) {
+  async requestMagicLink(_email) {
     throw new Error("Method 'requestMagicLink()' must be implemented");
   }
 
-  async resetPassword(email) {
+  async verifyMagicLink(_token) {
+    throw new Error("Method 'verifyMagicLink()' must be implemented");
+  }
+
+  async resetPassword(_email) {
     throw new Error("Method 'resetPassword()' must be implemented");
   }
 
@@ -26,11 +30,11 @@ export class AuthRepository {
     throw new Error("Method 'getCurrentUser()' must be implemented");
   }
 
-  async register(username, email, password) {
+  async register(_username, _email, _password) {
     throw new Error("Method 'register()' must be implemented");
   }
 
-  async verifyOTP(email, otp) {
+  async verifyOTP(_email, _otp) {
     throw new Error("Method 'verifyOTP()' must be implemented");
   }
 

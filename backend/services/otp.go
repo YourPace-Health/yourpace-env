@@ -101,3 +101,49 @@ func VerifyOTP(email string, otp string) (bool, error) {
 	config.RedisClient.Del(ctx, "otp:"+email)
 	return true, nil
 }
+
+func SendMagicLink(email string, token string) error {
+	frontendURL := os.Getenv("FRONTEND_URL")
+	if frontendURL == "" {
+		frontendURL = "http://localhost:3000"
+	}
+	link := fmt.Sprintf("%s/?magic-token=%s", frontendURL, token)
+
+	mailEnabled := os.Getenv("MAIL_ENABLED") == "true" || os.Getenv("MAIL_ENABLED") == ""
+	if !mailEnabled {
+		log.Printf("[MOCK MAIL] Sent Magic Link to email: %s. Link: %s", email, link)
+		return nil
+	}
+
+	// Simple SMTP Email Sender (Gmail)
+	smtpHost := "smtp.gmail.com"
+	smtpPort := "587"
+
+	username := os.Getenv("MAIL_USERNAME")
+	if username == "" {
+		username = "cp25ms2.financecare@gmail.com"
+	}
+	password := os.Getenv("MAIL_PASSWORD")
+	if password == "" {
+		password = "srbpwovznhlktcqt"
+	}
+
+	auth := smtp.PlainAuth("", username, password, smtpHost)
+
+	// Compose message
+	subject := "Subject: your magic Login Link\n"
+	mime := "MIME-version: 1.0;\nContent-Type: text/html; charset=\"UTF-8\";\n\n"
+	body := fmt.Sprintf("<html><body><h3>Click the link below to login to yourPace:</h3><p><a href=\"%s\">Login to yourPace</a></p><p>This link is valid for 15 minutes.</p></body></html>", link)
+	msg := []byte(subject + mime + body)
+
+	go func() {
+		err := smtp.SendMail(smtpHost+":"+smtpPort, auth, username, []string{email}, msg)
+		if err != nil {
+			log.Printf("Error sending magic link email: %v", err)
+		} else {
+			log.Printf("Magic link email successfully sent to %s", email)
+		}
+	}()
+
+	return nil
+}

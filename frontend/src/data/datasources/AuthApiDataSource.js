@@ -9,8 +9,7 @@ export class AuthApiDataSource {
   constructor() {
     this.STORAGE_KEY = "yourpace_session";
     // ปรับพอร์ตอัตโนมัติ: หากรันบนพอร์ต 3000 (Docker Compose) ชี้ไปที่ 8081
-    // ถ้ารันปกติ (Vite dev 5173) ชี้ไปที่ 8080
-    const port = window.location.port === "3000" ? "8081" : "8080";
+    const port = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_BACKEND_PORT) || (window.location.port === "8080" ? "8080" : "8081");
     this.API_URL = `http://${window.location.hostname}:${port}/api`;
   }
 
@@ -162,8 +161,62 @@ export class AuthApiDataSource {
   }
 
   async requestMagicLink(email) {
-    // จำลอง
-    return { success: true, message: `ส่ง Magic Link ไปที่ ${email} เรียบร้อยแล้ว กรุณาเช็คอินบ็อกซ์ของคุณ` };
+    try {
+      const response = await fetch(`${this.API_URL}/auth/magic-link`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "เกิดข้อผิดพลาดในการขอ Magic Link");
+      }
+
+      return { success: true, message: `ส่ง Magic Link ไปที่ ${email} เรียบร้อยแล้ว กรุณาเช็คอินบ็อกซ์ของคุณ` };
+    } catch (error) {
+      console.error("Request Magic Link Error:", error);
+      throw error;
+    }
+  }
+
+  async verifyMagicLink(token) {
+    try {
+      const response = await fetch(`${this.API_URL}/auth/verify-magic-link`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ token }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "ลิงก์เข้าสู่ระบบไม่ถูกต้องหรือหมดอายุ");
+      }
+
+      const mockUser = {
+        id: data.user.userId,
+        email: data.user.email,
+        name: data.user.username,
+        profilePicture: data.user.profilePicture || `https://api.dicebear.com/7.x/adventurer/svg?seed=${data.user.username}`,
+        createdAt: new Date().toISOString()
+      };
+
+      const session = { user: mockUser, token: data.accessToken };
+
+      // บันทึก session สำหรับ Stay Signed In
+      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(session));
+
+      return session;
+    } catch (error) {
+      console.error("Verify Magic Link Error:", error);
+      throw error;
+    }
   }
 
   async resetPassword(email) {

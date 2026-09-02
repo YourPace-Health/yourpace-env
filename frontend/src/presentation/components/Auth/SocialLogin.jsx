@@ -1,7 +1,3 @@
-// src/presentation/components/Auth/SocialLogin.jsx
-
-import React from 'react';
-
 export function SocialLogin({ onGoogleLogin, isLoading }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', width: '100%' }}>

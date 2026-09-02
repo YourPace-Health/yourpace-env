@@ -1,0 +1,32 @@
+run:
+  timeout: 5m
+  issues-exit-code: 1
+  tests: true
+
+linters:
+  enable:
+    - errcheck
+    - gosimple
+    - govet
+    - ineffassign
+    - staticcheck
+    - typecheck
+    - unused
+    - gofmt
+    - gosec
+
+linters-settings:
+  govet:
+    check-shadowing: true
+  gofmt:
+    simplify: true
+  gosec:
+    severity: medium
+    confidence: medium
+
+issues:
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - gosec
+        - errcheck

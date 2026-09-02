@@ -298,13 +298,14 @@ func UpdateScheduleStatus(c echo.Context) error {
 }
 
 type LogCustomBurnRequest struct {
-	Title           string  `json:"title"`
-	DurationMinutes int     `json:"durationMinutes"`
-	BurnedCalories  float64 `json:"burnedCalories"`
-	Description     string  `json:"description"`
-	ScheduledDate   string  `json:"scheduledDate"`
-	ScheduledTime   string  `json:"scheduledTime"`
-	TargetIntensity string  `json:"targetIntensity"`
+	Title              string  `json:"title"`
+	DurationMinutes    int     `json:"durationMinutes"`
+	BurnedCalories     float64 `json:"burnedCalories"`
+	Description        string  `json:"description"`
+	ScheduledDate      string  `json:"scheduledDate"`
+	ScheduledTime      string  `json:"scheduledTime"`
+	TargetIntensity    string  `json:"targetIntensity"`
+	SkipGoogleCalendar bool    `json:"skipGoogleCalendar"`
 }
 
 func LogCustomBurnWorkout(c echo.Context) error {
@@ -429,8 +430,10 @@ func LogCustomBurnWorkout(c echo.Context) error {
 	// Trigger Milestone Check
 	go checkForMilestones(userID)
 
-	// Create Event on Google Calendar if user is connected
-	go CreateGoogleCalendarWorkoutEvent(userID, req.Title, scheduledDate, req.DurationMinutes, req.BurnedCalories, req.Description)
+	// Create Event on Google Calendar only if not skipped
+	if !req.SkipGoogleCalendar {
+		go CreateGoogleCalendarWorkoutEvent(userID, req.Title, scheduledDate, req.DurationMinutes, req.BurnedCalories, req.Description)
+	}
 
 	return c.JSON(http.StatusCreated, schedule)
 }
@@ -502,6 +505,9 @@ func DeleteAllSchedules(c echo.Context) error {
 		config.DB.Where("workout_schedule_id = ?", s.ScheduleID).Delete(&models.WorkoutScheduleDetail{})
 	}
 	config.DB.Where("user_id = ?", userID).Delete(&models.WorkoutSchedule{})
+
+	// Also delete YourPace workout events from Google Calendar
+	go DeleteGoogleCalendarWorkoutEvents(userID)
 
 	return c.JSON(http.StatusOK, map[string]string{"message": "all schedules deleted successfully"})
 }

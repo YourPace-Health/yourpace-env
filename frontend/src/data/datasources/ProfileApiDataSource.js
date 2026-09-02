@@ -2,7 +2,7 @@
 
 export class ProfileApiDataSource {
   constructor() {
-    const port = window.location.port === "3000" ? "8081" : "8080";
+    const port = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_BACKEND_PORT) || (window.location.port === "8080" ? "8080" : "8081");
     this.API_URL = `http://${window.location.hostname}:${port}/api`;
   }
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Bot,
   Sparkles,
@@ -14,13 +14,9 @@ import {
   Meh,
   Frown,
   BatteryCharging,
-  Compass,
   LogOut,
-  User,
   Dumbbell,
-  ChevronRight,
   Flame,
-  Award,
   Send,
   Check,
   AlertTriangle,
@@ -34,23 +30,16 @@ import {
   Medal,
   Activity,
   RefreshCw,
-  CheckCheck,
-  HelpCircle,
   Minus,
   ChevronDown,
   Utensils,
   Apple,
   Salad,
-  Coffee,
   ChefHat,
   Camera,
-  Upload,
   Droplets,
-  PieChart,
   TrendingDown,
-  Layers,
-  Lightbulb,
-  Image as ImageIcon
+  Lightbulb
 } from 'lucide-react';
 import { AuthPage } from './presentation/pages/AuthPage';
 import { ProfilePage } from './presentation/pages/ProfilePage';
@@ -58,13 +47,14 @@ import { useAuthViewModel } from './presentation/hooks/useAuthViewModel';
 import { MentorApiDataSource } from './data/datasources/MentorApiDataSource';
 import { AuthApiDataSource } from './data/datasources/AuthApiDataSource';
 import { MealApiDataSource } from './data/datasources/MealApiDataSource';
+import { WARMUP_COOLDOWN_DATA, detectWorkoutMuscleCategory } from './data/warmupCooldownData';
 
 const mentorApiDataSource = new MentorApiDataSource();
 const authDataSource = new AuthApiDataSource();
 const mealDataSource = new MealApiDataSource();
 
 // Component to parse and format workout descriptions into clean visual cards & badges
-const FormattedWorkoutDescription = ({ description }) => {
+export const FormattedWorkoutDescription = ({ description }) => {
   if (!description) return null;
 
   // 1. Try parsing raw [Name: ..., Description: ..., MuscleGroup: ..., EquipmentNeeded: ..., BurnRate: ..., DifficultyLevel: ...]
@@ -160,12 +150,9 @@ const FormattedWorkoutDescription = ({ description }) => {
     .replace(/\|?\s*เผาผลาญประมาณ:[\s\S]*/i, '');
 
   // Split by bullet points (•) or newlines (\n)
-  let rawItems = [];
-  if (exercisesText.includes('•')) {
-    rawItems = exercisesText.split('•').map(s => s.trim()).filter(Boolean);
-  } else {
-    rawItems = exercisesText.split('\n').map(s => s.trim()).filter(Boolean);
-  }
+  const rawItems = exercisesText.includes('•')
+    ? exercisesText.split('•').map(s => s.trim()).filter(Boolean)
+    : exercisesText.split('\n').map(s => s.trim()).filter(Boolean);
 
   const parsedExercises = rawItems
     .filter(item => {
@@ -186,17 +173,17 @@ const FormattedWorkoutDescription = ({ description }) => {
         mainText = item.replace(metaMatch[0], '').trim();
 
         const mMatch = metaContent.match(/กล้ามเนื้อ:\s*([^|)]+)/i);
-        if (mMatch) muscleGroup = mMatch[1].trim().replace(/^[\(\)]+|[\(\)]+$/g, '');
+        if (mMatch) muscleGroup = mMatch[1].trim().replace(/^[()]+|[()]+$/g, '');
 
         const eqMatch = metaContent.match(/อุปกรณ์:\s*([^|)]+)/i);
-        if (eqMatch) equipment = eqMatch[1].trim().replace(/^[\(\)]+|[\(\)]+$/g, '');
+        if (eqMatch) equipment = eqMatch[1].trim().replace(/^[()]+|[()]+$/g, '');
       }
 
-      mainText = mainText.replace(/^[\(\)]+|[\(\)]+$/g, '').trim();
+      mainText = mainText.replace(/^[()]+|[()]+$/g, '').trim();
 
       const parts = mainText.split(/[-–—]/).map(s => s.trim());
-      let name = parts[0] ? parts[0].replace(/^[\(\)\*#]+|[\(\)\*#]+$/g, '').trim() : mainText;
-      let desc = parts.slice(1).join(' - ').replace(/^[\(\)\*#]+|[\(\)\*#]+$/g, '').trim() || name;
+      let name = parts[0] ? parts[0].replace(/^[()*#]+|[()*#]+$/g, '').trim() : mainText;
+      let desc = parts.slice(1).join(' - ').replace(/^[()*#]+|[()*#]+$/g, '').trim() || name;
 
       if (name.toLowerCase() === 'อุปกรณ์' || name.toLowerCase() === 'กล้ามเนื้อ') {
         return null;
@@ -215,7 +202,7 @@ const FormattedWorkoutDescription = ({ description }) => {
     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
         {parsedExercises.map((ex, i) => (
-          <div key={i} style={{
+          <div key={`ex-${ex.name || 'item'}-${i}`} style={{
             background: '#f8fafc',
             borderRadius: '12px',
             padding: '16px 18px',
@@ -238,8 +225,8 @@ const FormattedWorkoutDescription = ({ description }) => {
                   </span>
                 )}
                 {ex.equipment && (
-                  <span style={{ fontSize: '10.5px', padding: '2px 8px', borderRadius: '10px', background: '#eff6ff', color: '#1d4ed8', fontWeight: '600' }}>
-                    🧘 {ex.equipment}
+                  <span style={{ fontSize: '10.5px', padding: '2px 8px', borderRadius: '10px', background: '#f1f5f9', color: '#475569', fontWeight: '600' }}>
+                    ⚙️ {ex.equipment}
                   </span>
                 )}
               </div>
@@ -270,17 +257,17 @@ const FormattedWorkoutDescription = ({ description }) => {
 const FormattedChatMessage = ({ text }) => {
   if (!text) return null;
 
-  // 1. Strip schedule tags if present
-  let cleanText = text.replace(/\[TIME:[\s\S]*?\]/gi, '').trim();
+  // 1. Remove json wrapper block if present
+  let cleanText = text.replace(/^```json\s*/i, '').replace(/\s*```$/i, '');
 
-  // 2. Normalize section headers: replace "### **Header**" or "### Header" with newline + header
-  cleanText = cleanText.replace(/###\s*\*{0,2}(.*?)\*{0,2}/g, '\n\n### $1\n');
+  // 2. Normalize section headers
+  cleanText = cleanText.replaceAll('### ', '\n\n### ');
 
-  // 3. Normalize horizontal rules "---" or "***"
-  cleanText = cleanText.replace(/---|\*\*\*/g, '\n---\n');
+  // 3. Normalize horizontal rules
+  cleanText = cleanText.replaceAll('---', '\n---\n').replaceAll('***', '\n---\n');
 
-  // 4. Normalize bullet points "* **" or "* " to "\n• "
-  cleanText = cleanText.replace(/\n?\s*\*\s*\*\*/g, '\n• **');
+  // 4. Normalize bullet points
+  cleanText = cleanText.replaceAll('* **', '\n• **');
 
   // Split text into paragraphs by newline
   const lines = cleanText.split('\n');
@@ -293,9 +280,9 @@ const FormattedChatMessage = ({ text }) => {
 
         // Header lines (### Header)
         if (trimmed.startsWith('###')) {
-          const headerText = trimmed.replace(/^###\s*/, '').replace(/\*\*/g, '').trim();
+          const headerText = trimmed.replace(/^###\s*/, '').replaceAll('**', '').trim();
           return (
-            <div key={i} style={{
+            <div key={`header-${i}-${headerText.slice(0, 8)}`} style={{
               fontWeight: '700',
               fontSize: '13.5px',
               color: '#0f172a',
@@ -306,36 +293,36 @@ const FormattedChatMessage = ({ text }) => {
               gap: '6px'
             }}>
               <span style={{ width: '4px', height: '14px', background: '#10b981', borderRadius: '2px', display: 'inline-block' }}></span>
-              {headerText}
+              <span>{headerText}</span>
             </div>
           );
         }
 
         // Horizontal divider (---)
         if (trimmed === '---') {
-          return <hr key={i} style={{ border: 'none', borderTop: '1px dashed #cbd5e1', margin: '6px 0' }} />;
+          return <hr key={`hr-${i}`} style={{ border: 'none', borderTop: '1px dashed #cbd5e1', margin: '6px 0' }} />;
         }
 
         // Parse bold markdown **text** inside line
         const parts = trimmed.split(/(\*\*.*?\*\*)/g);
         const formattedParts = parts.map((part, pIdx) => {
           if (part.startsWith('**') && part.endsWith('**')) {
-            return <strong key={pIdx} style={{ color: '#0f172a', fontWeight: '700' }}>{part.slice(2, -2)}</strong>;
+            return <strong key={`part-bold-${pIdx}-${part.slice(2, 6)}`} style={{ color: '#0f172a', fontWeight: '700' }}>{part.slice(2, -2)}</strong>;
           }
           return part;
         });
 
         // Bullet point lines
         if (trimmed.startsWith('•') || trimmed.startsWith('*') || trimmed.startsWith('-')) {
-          const cleanItem = trimmed.replace(/^[•\*\-]\s*/, '');
+          const cleanItem = trimmed.replace(/^[•*-]\s*/, '');
           const itemParts = cleanItem.split(/(\*\*.*?\*\*)/g).map((part, pIdx) => {
             if (part.startsWith('**') && part.endsWith('**')) {
-              return <strong key={pIdx} style={{ color: '#0f172a', fontWeight: '700' }}>{part.slice(2, -2)}</strong>;
+              return <strong key={`bullet-bold-${pIdx}-${part.slice(2, 6)}`} style={{ color: '#0f172a', fontWeight: '700' }}>{part.slice(2, -2)}</strong>;
             }
             return part;
           });
           return (
-            <div key={i} style={{ paddingLeft: '4px', display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
+            <div key={`bullet-line-${i}-${cleanItem.slice(0, 8)}`} style={{ paddingLeft: '4px', display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
               <span style={{ color: '#10b981', fontWeight: 'bold' }}>•</span>
               <div>{itemParts}</div>
             </div>
@@ -349,35 +336,35 @@ const FormattedChatMessage = ({ text }) => {
           const rest = numMatch[2];
           const restParts = rest.split(/(\*\*.*?\*\*)/g).map((part, pIdx) => {
             if (part.startsWith('**') && part.endsWith('**')) {
-              return <strong key={pIdx} style={{ color: '#0f172a', fontWeight: '700' }}>{part.slice(2, -2)}</strong>;
+              return <strong key={`num-bold-${pIdx}-${part.slice(2, 6)}`} style={{ color: '#0f172a', fontWeight: '700' }}>{part.slice(2, -2)}</strong>;
             }
             return part;
           });
           return (
-            <div key={i} style={{ display: 'flex', gap: '6px', alignItems: 'flex-start', background: '#f8fafc', padding: '6px 10px', borderRadius: '6px', border: '1px solid #f1f5f9', marginTop: '2px' }}>
+            <div key={`num-line-${i}-${num}`} style={{ display: 'flex', gap: '6px', alignItems: 'flex-start', background: '#f8fafc', padding: '6px 10px', borderRadius: '6px', border: '1px solid #f1f5f9', marginTop: '2px' }}>
               <span style={{ color: '#059669', fontWeight: '800', fontSize: '11.5px', background: '#ecfdf5', padding: '1px 6px', borderRadius: '10px' }}>{num}</span>
               <div>{restParts}</div>
             </div>
           );
         }
 
-        return <div key={i}>{formattedParts}</div>;
+        return <div key={`line-${i}-${trimmed.slice(0, 8)}`}>{formattedParts}</div>;
       })}
     </div>
   );
 };
-
 function App() {
   const {
     currentUser,
     setCurrentUser,
     checkSession,
-    isLoading: authLoading,
+    isLoading: _authLoading,
     logout,
     error,
     setError,
     successMessage,
-    setSuccessMessage
+    setSuccessMessage,
+    verifyMagicLink
   } = useAuthViewModel();
 
   // Helper to extract session token from storage
@@ -394,12 +381,12 @@ function App() {
 
   // Profile status
   const [userProfile, setUserProfile] = useState(null);
-  const [profileLoading, setProfileLoading] = useState(false);
+  const [_profileLoading, setProfileLoading] = useState(false);
 
   // Schedules state
   const [workoutSchedules, setWorkoutSchedules] = useState([]);
   const [schedulesLoading, setSchedulesLoading] = useState(false);
-  const [scheduleGenerating, setScheduleGenerating] = useState(false);
+  const [_scheduleGenerating, _setScheduleGenerating] = useState(false);
 
   // Cardio Target state (Steps & Distance)
   const [cardioSteps, setCardioSteps] = useState(0);
@@ -466,7 +453,37 @@ function App() {
   // Dashboard calculations based on real completed schedules
   const [totalBurned, setTotalBurned] = useState(0);
   const [showLogBurnModal, setShowLogBurnModal] = useState(false);
+  const [showN8nPlanModal, setShowN8nPlanModal] = useState(false);
+  const [n8nCustomNote, setN8nCustomNote] = useState('');
+  const [n8nDaysCount, setN8nDaysCount] = useState(3);
   const [workoutTab, setWorkoutTab] = useState('plan'); // 'plan' | 'history'
+
+  // Warm-up & Cool-down Guide Modal States
+  const [showWarmupModal, setShowWarmupModal] = useState(false);
+  const [warmupSelectedTab, setWarmupSelectedTab] = useState('warmup'); // 'warmup' | 'cooldown'
+  const [warmupCategory, setWarmupCategory] = useState('UPPER_BODY'); // 'UPPER_BODY' | 'LOWER_BODY' | 'CORE_CARDIO'
+  const [warmupModalTitle, setWarmupModalTitle] = useState('');
+  const [completedWarmupIds, setCompletedWarmupIds] = useState(new Set());
+
+  const handleOpenWarmupGuide = (title = '', description = '', defaultTab = 'warmup') => {
+    const detectedCategory = detectWorkoutMuscleCategory(title, description);
+    setWarmupCategory(detectedCategory);
+    setWarmupModalTitle(title);
+    setWarmupSelectedTab(defaultTab);
+    setShowWarmupModal(true);
+  };
+
+  const handleToggleWarmupCheck = (exerciseId) => {
+    setCompletedWarmupIds(prev => {
+      const next = new Set(prev);
+      if (next.has(exerciseId)) {
+        next.delete(exerciseId);
+      } else {
+        next.add(exerciseId);
+      }
+      return next;
+    });
+  };
 
   const workoutPresets = [
     { id: 'running', title: 'วิ่งออกกำลังกาย', shortTitle: 'วิ่งออกกำลัง', icon: '🏃', burnRate: 8.5 },
@@ -766,7 +783,7 @@ function App() {
   };
 
   // Daily Tasks Mock in Dashboard (fallback or minor tasks)
-  const [dailyTasks, setDailyTasks] = useState([
+  const [_dailyTasks, _setDailyTasks] = useState([
     { id: 1, text: 'ดื่มน้ำให้ครบ 2.5 ลิตร', done: true },
     { id: 2, text: 'บันทึกปริมาณแคลอรี่ในมื้อเที่ยง', done: true },
   ]);
@@ -780,9 +797,9 @@ function App() {
 
   // Health Progress & Trends Analytics States
   const [progressAnalytics, setProgressAnalytics] = useState(null);
-  const [analyticsLoading, setAnalyticsLoading] = useState(false);
+  const [_analyticsLoading, setAnalyticsLoading] = useState(false);
   const [milestonesList, setMilestonesList] = useState([]);
-  const [weightHistory, setWeightHistory] = useState([]);
+  const [_weightHistory, setWeightHistory] = useState([]);
   const [weeklyRecapData, setWeeklyRecapData] = useState(null);
   const [isRecapLoading, setIsRecapLoading] = useState(false);
 
@@ -821,7 +838,7 @@ function App() {
   const [energyBalance, setEnergyBalance] = useState(null);
   const [weeklyNutrition, setWeeklyNutrition] = useState(null);
   const [coachFeedback, setCoachFeedback] = useState(null);
-  const [isLoadingNutritionExtra, setIsLoadingNutritionExtra] = useState(false);
+  const [_isLoadingNutritionExtra, _setIsLoadingNutritionExtra] = useState(false);
 
   // Google Calendar Integration States
   const [isCalendarConnected, setIsCalendarConnected] = useState(false);
@@ -829,7 +846,7 @@ function App() {
   const [calendarLoading, setCalendarLoading] = useState(false);
 
   const getApiUrl = (path) => {
-    const port = window.location.port === "3000" ? "8081" : "8080";
+    const port = import.meta.env.VITE_BACKEND_PORT || (window.location.port === "8080" ? "8080" : "8081");
     return `http://${window.location.hostname}:${port}/api${path}`;
   };
 
@@ -1142,6 +1159,11 @@ function App() {
       if (response.ok) {
         const data = await response.json();
         setCalendarEvents(data.items || []);
+      } else if (response.status === 403) {
+        // Token expired or revoked — backend has already deleted it
+        console.warn("Google Calendar token expired or revoked, marking as disconnected");
+        setIsCalendarConnected(false);
+        setCalendarEvents([]);
       }
     } catch (err) {
       console.error("Failed to load calendar events:", err);
@@ -1170,7 +1192,7 @@ function App() {
     }
   };
 
-  const handleDisconnectCalendar = async () => {
+  const _handleDisconnectCalendar = async () => {
     const token = getSessionToken();
     if (!token) return;
 
@@ -1293,12 +1315,16 @@ function App() {
         setCurrentRoute('landing');
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser]);
 
   // Check for calendar redirect status
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    if (params.get("google-calendar") === "connected") {
+    const googleCalendar = params.get("google-calendar");
+    const calendarErr = params.get("calendar_error");
+
+    if (googleCalendar === "connected") {
       setSuccessMessage("เชื่อมต่อกับ Google Calendar สำเร็จแล้ว! ดึงตารางงานของคุณเข้าสู่ระบบเรียบร้อย");
       setCurrentRoute('dashboard');
       const token = getSessionToken();
@@ -1308,12 +1334,33 @@ function App() {
       // Clean URL
       const newUrl = window.location.pathname;
       window.history.replaceState({}, document.title, newUrl);
-    } else if (params.get("calendar_error")) {
-      setError("การเชื่อมต่อ Google Calendar ล้มเหลว: " + params.get("calendar_error"));
+    } else if (calendarErr) {
+      setError("การเชื่อมต่อ Google Calendar ล้มเหลว: " + calendarErr);
       setCurrentRoute('dashboard');
       const newUrl = window.location.pathname;
       window.history.replaceState({}, document.title, newUrl);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Check for Magic Link login token in URL query parameter
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const magicToken = params.get("magic-token");
+    if (magicToken) {
+      verifyMagicLink(magicToken)
+        .then(() => {
+          // Clean URL
+          const newUrl = window.location.pathname;
+          window.history.replaceState({}, document.title, newUrl);
+        })
+        .catch(() => {
+          // Clean URL
+          const newUrl = window.location.pathname;
+          window.history.replaceState({}, document.title, newUrl);
+        });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Equipment interactive list
@@ -1331,7 +1378,7 @@ function App() {
 
     setTimeout(() => {
       setIsAnalyzing(false);
-      let recommendation = '';
+      let recommendation;
       switch (status) {
         case 'energetic':
           recommendation = '🔋 พลังงานเต็มเปี่ยม! AI แนะนำโปรแกรม Strength Training หนัก 45 นาที ร่วมกับคาร์ดิโอความเข้มข้นสูง (HIIT) เพื่อเผาผลาญไขมันสูงสุด และแนะนำเน้นโปรตีนหลังออกกำลังกาย';
@@ -1362,49 +1409,19 @@ function App() {
     }
   };
 
-  const toggleTask = (id) => {
-    setDailyTasks(dailyTasks.map(task =>
-      task.id === id ? { ...task, done: !task.done } : task
-    ));
-  };
-
-  // Generate Weekly Schedule via Backend API
-  const handleGenerateWeeklySchedule = async () => {
-    const token = getSessionToken();
-    if (!token) return;
-
-    setScheduleGenerating(true);
-    try {
-      const response = await fetch(getApiUrl("/schedules/generate"), {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
-        }
-      });
-      if (response.ok) {
-        await loadUserData(); // Reload data
-      } else {
-        const errData = await response.json();
-        alert(errData.error || "ไม่สามารถสร้างตารางออกกำลังกายได้");
-      }
-    } catch (err) {
-      console.error("Generate schedule error:", err);
-      alert("เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์");
-    } finally {
-      setScheduleGenerating(false);
-    }
-  };
-
   // n8n AI Workout Planning State & Handler
   const [isN8nPlanning, setIsN8nPlanning] = useState(false);
 
-  const handlePlanFreeTimeWithN8N = async () => {
+  const handlePlanFreeTimeWithN8N = async (e, noteOverride, daysOverride) => {
+    if (e && e.preventDefault) e.preventDefault();
     const token = getSessionToken();
     if (!token) return;
 
+    const noteToSend = noteOverride !== undefined ? noteOverride : n8nCustomNote;
+    const daysToSend = daysOverride !== undefined ? daysOverride : n8nDaysCount;
+
     setIsN8nPlanning(true);
-    setSuccessMessage("🤖 กำลังส่ง Prompt ข้อมูลสุขภาพและนัดหมายตารางงานให้ n8n AI ออกแบบตารางในเวลาว่าง...");
+    setSuccessMessage("🤖 กำลังส่ง Prompt ข้อมูลสุขภาพ นัดหมายตารางงาน และเงื่อนไขเพิ่มเติมให้ n8n AI ออกแบบตาราง...");
 
     try {
       const response = await fetch(getApiUrl("/mentor/n8n-plan"), {
@@ -1414,19 +1431,26 @@ function App() {
           "Authorization": `Bearer ${token}`
         },
         body: JSON.stringify({
-          calendarEvents: calendarEvents
+          calendarEvents: calendarEvents,
+          userNote: noteToSend,
+          daysCount: Number(daysToSend) || 3
         })
       });
 
       if (response.ok) {
         const data = await response.json();
+        const userPromptMsg = noteToSend.trim()
+          ? `🤖 วางแผนออกกำลังกายในเวลาว่าง (${daysToSend} วัน) โดยมีเงื่อนไขเพิ่มเติม: "${noteToSend.trim()}"`
+          : `🤖 วางแผนออกกำลังกายในเวลาว่าง (${daysToSend} วัน) จาก Google Calendar ตามข้อมูลส่วนตัว`;
+
         setChatLog(prev => [
           ...prev,
-          { sender: 'user', text: '🤖 วางแผนออกกำลังกายในเวลาว่างที่ไม่มีนัดหมายจาก Google Calendar ตามข้อมูลส่วนตัว' },
-          { sender: 'ai', text: data.response || 'n8n AI ดำเนินการวางแผนเรียบร้อยแล้ว!' }
+          { sender: 'user', text: userPromptMsg },
+          { sender: 'ai', text: data.response || 'n8n AI ดำเนินการวางแผนและสร้างตารางซ้อมเรียบร้อยแล้ว!' }
         ]);
         setIsChatOpen(true);
-        setSuccessMessage("✨ n8n AI ออกแบบตารางออกกำลังกายในเวลาว่างให้คุณเรียบร้อยแล้ว!");
+        setShowN8nPlanModal(false);
+        setSuccessMessage("✨ n8n AI ออกแบบและสร้างตารางออกกำลังกายในเวลาว่างให้คุณเรียบร้อยแล้ว!");
         await loadUserData(); // Reload parsed AI schedules from DB
       } else {
         const errData = await response.json();
@@ -1445,7 +1469,7 @@ function App() {
     const token = getSessionToken();
     if (!token) return;
 
-    if (!confirm("คุณต้องการลบตารางการออกกำลังกายทั้งหมดใช่หรือไม่?")) return;
+    if (!confirm("คุณต้องการลบตารางการออกกำลังกายทั้งหมดใช่หรือไม่? (ระบบจะลบทั้งในระบบและปฏิทินที่สร้างโดย yourPace)")) return;
 
     try {
       const response = await fetch(getApiUrl("/schedules"), {
@@ -1455,12 +1479,16 @@ function App() {
       if (response.ok) {
         setWorkoutSchedules([]);
         setSuccessMessage("ลบตารางการออกกำลังกายทั้งหมดเรียบร้อยแล้ว!");
+        // Refresh calendar events to reflect deleted YourPace events
+        setTimeout(() => {
+          loadCalendarEvents(token);
+          loadUserData();
+        }, 1200);
       }
     } catch (err) {
       console.error("Failed to delete all schedules:", err);
     }
   };
-  const handleClearAllSchedules = handleDeleteAllSchedules;
 
 
   // Delete individual schedule
@@ -1513,6 +1541,7 @@ function App() {
     const title = event.summary ? event.summary.replace(/\s*\(YourPaceEvent\)\s*/gi, '').trim() : 'การออกกำลังกาย';
     
     let durationMinutes = 60;
+    let eventDateStr = "";
     if (event.start && event.end) {
       const s = new Date(event.start.dateTime || event.start.date);
       const e = new Date(event.end.dateTime || event.end.date);
@@ -1520,6 +1549,7 @@ function App() {
       if (diffMs > 0) {
         durationMinutes = Math.round(diffMs / (1000 * 60));
       }
+      eventDateStr = (event.start.dateTime || event.start.date).split('T')[0];
     }
 
     let burnedCalories = 300;
@@ -1542,7 +1572,9 @@ function App() {
           title: title,
           durationMinutes: durationMinutes,
           burnedCalories: burnedCalories,
-          description: event.description || ""
+          description: event.description || "",
+          scheduledDate: eventDateStr,
+          skipGoogleCalendar: true // ป้องกันการยิงสร้าง event ซ้ำลง Google Calendar เพราะมีอยู่แล้ว
         })
       });
 
@@ -2010,7 +2042,7 @@ function App() {
                 </div>
                 <div style={{ width: '100%', height: '8px', background: 'rgba(0,0,0,0.3)', borderRadius: '4px', overflow: 'hidden' }}>
                   <div style={{
-                    width: `${Math.min(100, progressAnalytics?.levelInfo?.progressPercentage || 10)}%`,
+                    width: `${Math.min(100, Math.max(0, progressAnalytics?.levelInfo?.progressPercentage ?? 0))}%`,
                     height: '100%',
                     background: 'linear-gradient(90deg, #10b981 0%, #34d399 50%, #60a5fa 100%)',
                     borderRadius: '4px',
@@ -2332,6 +2364,29 @@ function App() {
                 <Calendar size={20} color="var(--primary)" /> แผนตารางและการบันทึกการออกกำลังกาย
               </h3>
                       <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                        {/* Warm-up & Cool-down Guide Button */}
+                        <button
+                          onClick={() => handleOpenWarmupGuide('Full Body Routine', '', 'warmup')}
+                          style={{
+                            fontSize: '13px',
+                            padding: '8px 16px',
+                            borderRadius: '20px',
+                            background: '#fffbeb',
+                            color: '#b45309',
+                            border: '1px solid #fde68a',
+                            cursor: 'pointer',
+                            fontWeight: '700',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            transition: 'all 0.2s'
+                          }}
+                          title="เปิดคู่มือแนะนำท่าวอร์มอัพ (Warm-up) และคูลดาวน์ (Cool-down)"
+                        >
+                          <Flame size={15} color="#f59e0b" />
+                          <span>วอร์มอัพ & คูลดาวน์</span>
+                        </button>
+
                         {/* Manual Workout Log Button */}
                         <button
                           onClick={() => setShowLogBurnModal(true)}
@@ -2357,7 +2412,7 @@ function App() {
 
                         {/* n8n AI Free Time Planner Button */}
                         <button
-                          onClick={handlePlanFreeTimeWithN8N}
+                          onClick={() => setShowN8nPlanModal(true)}
                           disabled={isN8nPlanning}
                           className="btn btn-primary"
                           style={{
@@ -2503,7 +2558,7 @@ function App() {
                           </button>
 
                           <button
-                            onClick={handlePlanFreeTimeWithN8N}
+                            onClick={() => setShowN8nPlanModal(true)}
                             disabled={isN8nPlanning}
                             className="btn btn-primary"
                             style={{
@@ -2533,289 +2588,423 @@ function App() {
                       </div>
                     ) : (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                        {workoutSchedules
-                          .filter(schedule => {
+                        {(() => {
+                          const dbItems = workoutSchedules
+                            .filter(schedule => {
+                              if (workoutTab === 'history') {
+                                return schedule.status === 'COMPLETED';
+                              } else {
+                                return schedule.status !== 'COMPLETED';
+                              }
+                            })
+                            .filter(schedule => {
+                              const titleClean = (schedule.title || '').toLowerCase().replace(/\s*\(yourpaceevent\)\s*/gi, '').trim();
+                              const hasMatchingGCalEvent = calendarEvents.some(event => {
+                                const sumClean = (event.summary || '').toLowerCase().replace(/\s*\(yourpaceevent\)\s*/gi, '').trim();
+                                return sumClean.length > 0 && (sumClean.includes(titleClean) || titleClean.includes(sumClean));
+                              });
+                              return !hasMatchingGCalEvent;
+                            })
+                            .map(schedule => ({
+                              type: 'db',
+                              date: new Date(schedule.scheduledDate),
+                              schedule: schedule,
+                              key: `db-${getScheduleId(schedule) || schedule.title}`
+                            }));
+
+                          const gcalItems = calendarEvents
+                            .filter(event => {
+                              if (!event.summary || !event.summary.toLowerCase().includes('yourpaceevent')) return false;
+
+                              const cleanSummary = (event.summary || '').toLowerCase().replace(/\s*\(yourpaceevent\)\s*/gi, '').trim();
+                              const isCompleted = workoutSchedules.some(s => {
+                                if (s.status !== 'COMPLETED') return false;
+                                const cleanSTitle = (s.title || '').toLowerCase().replace(/\s*\(yourpaceevent\)\s*/gi, '').trim();
+                                return cleanSTitle.length > 0 && (cleanSTitle.includes(cleanSummary) || cleanSummary.includes(cleanSTitle));
+                              });
+
+                              if (workoutTab === 'history') {
+                                return isCompleted;
+                              } else {
+                                return !isCompleted;
+                              }
+                            })
+                            .map((event, idx) => ({
+                              type: 'gcal',
+                              date: event.start.dateTime ? new Date(event.start.dateTime) : new Date(event.start.date),
+                              event: event,
+                              key: `gcal-${event.id || idx}`
+                            }));
+
+                          // รวมและเรียงลำดับตามวันที่
+                          const unifiedList = [...dbItems, ...gcalItems].sort((a, b) => {
                             if (workoutTab === 'history') {
-                              return schedule.status === 'COMPLETED';
-                            } else {
-                              return schedule.status !== 'COMPLETED';
+                              return b.date.getTime() - a.date.getTime(); // ล่าสุด -> อดีต
                             }
-                          })
-                          .filter(schedule => {
-                            const titleClean = (schedule.title || '').toLowerCase().replace(/\s*\(yourpaceevent\)\s*/gi, '').trim();
-                            const hasMatchingGCalEvent = calendarEvents.some(event => {
-                              const sumClean = (event.summary || '').toLowerCase().replace(/\s*\(yourpaceevent\)\s*/gi, '').trim();
-                              return sumClean.length > 0 && (sumClean.includes(titleClean) || titleClean.includes(sumClean));
-                            });
-                            return !hasMatchingGCalEvent;
-                          })
-                          .map(schedule => {
-                            const isCompleted = schedule.status === 'COMPLETED';
-                            const sDate = new Date(schedule.scheduledDate);
-                            const isToday = sDate.toDateString() === new Date().toDateString();
-                            const formattedDate = sDate.toLocaleDateString('th-TH', { weekday: 'long', day: 'numeric', month: 'short' });
+                            return a.date.getTime() - b.date.getTime(); // วันแรก -> วันถัดไป
+                          });
 
-                            return (
-                              <div
-                                key={getScheduleId(schedule) || schedule.title}
-                                style={{
-                                  border: isToday ? (isCompleted ? '1.5px solid #86efac' : '2px solid #10b981') : '1px solid #e2e8f0',
-                                  background: isToday
-                                    ? (isCompleted ? '#f0fdf4' : 'linear-gradient(180deg, #ffffff 0%, #f0fdf4 100%)')
-                                    : (isCompleted ? '#f8fafc' : '#ffffff'),
-                                  borderRadius: '16px',
-                                  padding: '22px',
-                                  display: 'flex',
-                                  flexDirection: 'column',
-                                  gap: '14px',
-                                  boxShadow: isToday ? '0 4px 18px rgba(16, 185, 129, 0.15)' : '0 2px 8px rgba(0,0,0,0.03)',
-                                  opacity: isCompleted ? 0.88 : 1,
-                                  transition: 'all 0.3s',
-                                  position: 'relative'
-                                }}
-                              >
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    {isToday ? (
-                                      <span style={{
-                                        fontSize: '11.5px',
-                                        fontWeight: '800',
-                                        background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                                        color: 'white',
-                                        padding: '3px 10px',
-                                        borderRadius: '12px',
-                                        boxShadow: '0 2px 6px rgba(16, 185, 129, 0.35)',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '4px'
-                                      }}>
-                                        🌟 กิจกรรมวันนี้ (Today)
-                                      </span>
-                                    ) : (
-                                      <span style={{ fontSize: '13.5px', fontWeight: '700', color: isCompleted ? 'var(--text-muted)' : '#64748b' }}>
-                                        🗓️ {formattedDate}
-                                      </span>
-                                    )}
-                                  </div>
+                          return unifiedList.map(item => {
+                            if (item.type === 'db') {
+                              const schedule = item.schedule;
+                              const isCompleted = schedule.status === 'COMPLETED';
+                              const sDate = item.date;
+                              const isToday = sDate.toDateString() === new Date().toDateString();
+                              const formattedDate = sDate.toLocaleDateString('th-TH', { weekday: 'long', day: 'numeric', month: 'short' });
 
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <span style={{
-                                      fontSize: '11px',
-                                      fontWeight: '800',
-                                      padding: '4px 10px',
-                                      borderRadius: '4px',
-                                      background: isCompleted ? '#e6f4ea' : (isToday ? '#d1fae5' : '#f1f5f9'),
-                                      color: isCompleted ? '#137333' : (isToday ? '#065f46' : '#475569')
-                                    }}>
-                                      {isCompleted ? 'COMPLETED' : schedule.targetIntensity || 'MODERATE'}
-                                    </span>
-                                    <button
-                                      onClick={() => handleDeleteSchedule(getScheduleId(schedule))}
-                                      style={{
-                                        background: 'none',
-                                        border: 'none',
-                                        color: '#cbd5e1',
-                                        cursor: 'pointer',
-                                        padding: '2px',
-                                        borderRadius: '4px',
-                                        display: 'flex',
-                                        alignItems: 'center'
-                                      }}
-                                      title="ลบรายการนี้"
-                                    >
-                                      <X size={16} />
-                                    </button>
-                                  </div>
-                                </div>
-
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                  <div>
-                                    <h4 style={{
-                                      fontSize: '18px',
-                                      fontWeight: '700',
-                                      color: isCompleted ? 'var(--text-muted)' : '#0f172a',
-                                      marginBottom: '4px',
-                                      textDecoration: isCompleted ? 'line-through' : 'none'
-                                    }}>
-                                      {schedule.title}
-                                    </h4>
-                                    <p style={{ fontSize: '13px', color: '#94a3b8', margin: 0 }}>
-                                      ⏱️ ระยะเวลา: {schedule.durationMinutes} นาที | 🔥 เผาผลาญ: {schedule.burnedCalories ? Math.round(schedule.burnedCalories) : 0} kcal (เมื่อเสร็จ)
-                                    </p>
-                                  </div>
-
-                                  <button
-                                    onClick={() => handleToggleScheduleStatus(schedule)}
-                                    style={{
-                                      padding: isCompleted ? '8px 18px' : '8px 20px',
-                                      fontSize: isCompleted ? '13px' : '14px',
-                                      fontWeight: '700',
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      gap: '6px',
-                                      background: isCompleted ? '#e6f4ea' : '#48bb78',
-                                      color: isCompleted ? '#137333' : 'white',
-                                      border: isCompleted ? '1px solid #ceedd5' : 'none',
-                                      borderRadius: '24px',
-                                      cursor: 'pointer',
-                                      boxShadow: isCompleted ? 'none' : '0 2px 8px rgba(72, 187, 120, 0.3)',
-                                      transition: 'all 0.2s'
-                                    }}
-                                    title={isCompleted ? "คลิกเพื่อยกเลิกสถานะทำสำเร็จ" : "บันทึกว่าทำสำเร็จแล้ว"}
-                                  >
-                                    <Check size={16} /> {isCompleted ? 'สำเร็จแล้ว (คลิกเพื่อยกเลิก)' : 'ทำสำเร็จแล้ว'}
-                                  </button>
-                                </div>
-
-                                {/* Exercises list in schedule */}
-                                {schedule.details && schedule.details.length > 0 && (
-                                  <div style={{
-                                    borderTop: '1px dashed #e2e8f0',
-                                    marginTop: '12px',
-                                    paddingTop: '16px',
+                              return (
+                                <div
+                                  key={item.key}
+                                  style={{
+                                    border: isToday ? (isCompleted ? '1.5px solid #86efac' : '2px solid #10b981') : '1px solid #e2e8f0',
+                                    background: isToday
+                                      ? (isCompleted ? '#f0fdf4' : 'linear-gradient(180deg, #ffffff 0%, #f0fdf4 100%)')
+                                      : (isCompleted ? '#f8fafc' : '#ffffff'),
+                                    borderRadius: '16px',
+                                    padding: '22px',
                                     display: 'flex',
                                     flexDirection: 'column',
-                                    gap: '12px',
-                                    textAlign: 'left'
-                                  }}>
-                                    <span style={{ fontSize: '13px', fontWeight: '700', color: '#94a3b8' }}>
-                                      รายการท่าฝึกซ้อม:
-                                    </span>
-                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
-                                      {schedule.details.map((detail, idx) => (
-                                        <div key={idx} style={{ background: '#f8fafc', padding: '16px 18px', borderRadius: '12px', border: '1px solid #f1f5f9', transition: 'all 0.2s' }}>
-                                          <span style={{ fontSize: '15px', fontWeight: '700', display: 'block', color: '#334155', marginBottom: '4px' }}>
-                                            {detail.exercise.name}
-                                          </span>
-                                          <span style={{ fontSize: '13px', color: '#10b981', fontWeight: '600' }}>
-                                            {detail.sets} เซ็ต × {detail.reps} ครั้ง <span style={{ color: '#94a3b8', fontWeight: 'normal' }}>({detail.durationSeconds} วินาที)</span>
-                                          </span>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })}
-
-                        {/* Render Google Calendar Events containing yourpaceevent */}
-                        {calendarEvents
-                          .filter(event => {
-                            if (!event.summary || !event.summary.toLowerCase().includes('yourpaceevent')) return false;
-
-                            const cleanSummary = (event.summary || '').toLowerCase().replace(/\s*\(yourpaceevent\)\s*/gi, '').trim();
-                            const isCompleted = workoutSchedules.some(s => {
-                              if (s.status !== 'COMPLETED') return false;
-                              const cleanSTitle = (s.title || '').toLowerCase().replace(/\s*\(yourpaceevent\)\s*/gi, '').trim();
-                              return cleanSTitle.length > 0 && (cleanSTitle.includes(cleanSummary) || cleanSummary.includes(cleanSTitle));
-                            });
-
-                            if (workoutTab === 'history') {
-                              return isCompleted;
-                            } else {
-                              return !isCompleted;
-                            }
-                          })
-                          .map((event, idx) => {
-                            const start = event.start.dateTime ? new Date(event.start.dateTime) : new Date(event.start.date);
-                            const isAllDay = !event.start.dateTime;
-                            const isToday = start.toDateString() === new Date().toDateString();
-                            const formattedDate = start.toLocaleDateString('th-TH', { weekday: 'long', day: 'numeric', month: 'short' });
-                            const startTime = isAllDay ? "ตลอดวัน" : start.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
-
-                            const cleanSummary = (event.summary || '').toLowerCase().replace(/\s*\(yourpaceevent\)\s*/gi, '').trim();
-                            const isCompleted = workoutSchedules.some(s => {
-                              if (s.status !== 'COMPLETED') return false;
-                              const cleanSTitle = (s.title || '').toLowerCase().replace(/\s*\(yourpaceevent\)\s*/gi, '').trim();
-                              return cleanSTitle.length > 0 && (cleanSTitle.includes(cleanSummary) || cleanSummary.includes(cleanSTitle));
-                            });
-
-                            return (
-                              <div
-                                key={`gcal-${idx}`}
-                                style={{
-                                  border: isToday ? (isCompleted ? '1.5px solid #86efac' : '2px solid #10b981') : '1px solid #e2e8f0',
-                                  background: isToday
-                                    ? (isCompleted ? '#f0fdf4' : 'linear-gradient(180deg, #ffffff 0%, #f0fdf4 100%)')
-                                    : (isCompleted ? '#f8fafc' : '#ffffff'),
-                                  borderRadius: 'var(--radius-md)',
-                                  padding: '18px 20px',
-                                  display: 'flex',
-                                  flexDirection: 'column',
-                                  gap: '12px',
-                                  boxShadow: isToday ? '0 4px 18px rgba(16, 185, 129, 0.15)' : '0 2px 8px rgba(0,0,0,0.03)',
-                                  opacity: isCompleted ? 0.88 : 1,
-                                  transition: 'all 0.3s'
-                                }}
-                              >
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-                                  <div style={{ textAlign: 'left', flex: 1, minWidth: '200px' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px', flexWrap: 'wrap' }}>
-                                      <span style={{ fontSize: '11px', fontWeight: '800', color: '#047857', background: '#ecfdf5', padding: '2px 8px', borderRadius: '4px' }}>
-                                        Google Calendar Event
-                                      </span>
-                                      {isToday && (
+                                    gap: '14px',
+                                    boxShadow: isToday ? '0 4px 18px rgba(16, 185, 129, 0.15)' : '0 2px 8px rgba(0,0,0,0.03)',
+                                    opacity: isCompleted ? 0.88 : 1,
+                                    transition: 'all 0.3s',
+                                    position: 'relative'
+                                  }}
+                                >
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                      {isToday ? (
                                         <span style={{
-                                          fontSize: '11px',
+                                          fontSize: '11.5px',
                                           fontWeight: '800',
                                           background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
                                           color: 'white',
-                                          padding: '2px 8px',
-                                          borderRadius: '10px',
-                                          boxShadow: '0 2px 6px rgba(16, 185, 129, 0.3)'
+                                          padding: '3px 10px',
+                                          borderRadius: '12px',
+                                          boxShadow: '0 2px 6px rgba(16, 185, 129, 0.35)',
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          gap: '4px'
                                         }}>
-                                          🌟 วันนี้ (Today)
+                                          🌟 กิจกรรมวันนี้ (Today)
                                         </span>
-                                      )}
-                                      {isCompleted && (
-                                        <span style={{ fontSize: '11px', fontWeight: '800', color: '#15803d', background: '#dcfce7', padding: '2px 8px', borderRadius: '4px' }}>
-                                          COMPLETED
+                                      ) : (
+                                        <span style={{ fontSize: '13.5px', fontWeight: '700', color: isCompleted ? 'var(--text-muted)' : '#64748b' }}>
+                                          🗓️ {formattedDate}
                                         </span>
                                       )}
                                     </div>
-                                    <h4 style={{
-                                      fontSize: '16px',
-                                      fontWeight: '700',
-                                      margin: '4px 0 2px',
-                                      color: isCompleted ? 'var(--text-muted)' : '#0f172a',
-                                      textDecoration: isCompleted ? 'line-through' : 'none'
-                                    }}>
-                                      {event.summary ? event.summary.replace(/\s*\(YourPaceEvent\)\s*/gi, '').trim() : "(ไม่มีชื่อกิจกรรม)"}
-                                    </h4>
-                                    <span style={{ fontSize: '13px', color: isToday ? '#059669' : '#64748b', fontWeight: isToday ? '600' : 'normal' }}>
-                                      🗓️ {formattedDate} • ⏰ {startTime}
-                                    </span>
+
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                      <span style={{
+                                        fontSize: '11px',
+                                        fontWeight: '800',
+                                        padding: '4px 10px',
+                                        borderRadius: '4px',
+                                        background: isCompleted ? '#e6f4ea' : (isToday ? '#d1fae5' : '#f1f5f9'),
+                                        color: isCompleted ? '#137333' : (isToday ? '#065f46' : '#475569')
+                                      }}>
+                                        {isCompleted ? 'COMPLETED' : schedule.targetIntensity || 'MODERATE'}
+                                      </span>
+                                      <button
+                                        onClick={() => handleDeleteSchedule(getScheduleId(schedule))}
+                                        style={{
+                                          background: 'none',
+                                          border: 'none',
+                                          color: '#cbd5e1',
+                                          cursor: 'pointer',
+                                          padding: '2px',
+                                          borderRadius: '4px',
+                                          display: 'flex',
+                                          alignItems: 'center'
+                                        }}
+                                        title="ลบรายการนี้"
+                                      >
+                                        <X size={16} />
+                                      </button>
+                                    </div>
                                   </div>
 
-                                  <button
-                                    type="button"
-                                    onClick={() => handleToggleGCalEvent(event)}
-                                    style={{
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <div>
+                                      <h4 style={{
+                                        fontSize: '18px',
+                                        fontWeight: '700',
+                                        color: isCompleted ? 'var(--text-muted)' : '#0f172a',
+                                        marginBottom: '4px',
+                                        textDecoration: isCompleted ? 'line-through' : 'none'
+                                      }}>
+                                        {schedule.title}
+                                      </h4>
+                                      <p style={{ fontSize: '13px', color: '#94a3b8', margin: 0 }}>
+                                        ⏱️ ระยะเวลา: {schedule.durationMinutes} นาที | 🔥 เผาผลาญ: {schedule.burnedCalories ? Math.round(schedule.burnedCalories) : 0} kcal (เมื่อเสร็จ)
+                                      </p>
+                                    </div>
+
+                                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleOpenWarmupGuide(schedule.title, JSON.stringify(schedule.details || []), 'warmup')}
+                                        style={{
+                                          padding: '7px 14px',
+                                          fontSize: '12.5px',
+                                          fontWeight: '700',
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          gap: '5px',
+                                          background: 'rgba(245, 158, 11, 0.1)',
+                                          color: '#b45309',
+                                          border: '1px solid rgba(245, 158, 11, 0.25)',
+                                          borderRadius: '20px',
+                                          cursor: 'pointer',
+                                          transition: 'all 0.2s'
+                                        }}
+                                        title="ดูคำแนะนำท่าวอร์มอัพก่อนซ้อม และท่าคูลดาวน์หลังซ้อมสำหรับกิจกรรมนี้"
+                                      >
+                                        <span>🧘 วอร์มอัพ/ยืดเหยียด</span>
+                                      </button>
+
+                                      <button
+                                        onClick={() => handleToggleScheduleStatus(schedule)}
+                                        style={{
+                                          padding: isCompleted ? '8px 18px' : '8px 20px',
+                                          fontSize: isCompleted ? '13px' : '14px',
+                                          fontWeight: '700',
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          gap: '6px',
+                                          background: isCompleted ? '#e6f4ea' : '#48bb78',
+                                          color: isCompleted ? '#137333' : 'white',
+                                          border: isCompleted ? '1px solid #ceedd5' : 'none',
+                                          borderRadius: '24px',
+                                          cursor: 'pointer',
+                                          boxShadow: isCompleted ? 'none' : '0 2px 8px rgba(72, 187, 120, 0.3)',
+                                          transition: 'all 0.2s'
+                                        }}
+                                        title={isCompleted ? "คลิกเพื่อยกเลิกสถานะทำสำเร็จ" : "บันทึกว่าทำสำเร็จแล้ว"}
+                                      >
+                                        <Check size={16} /> {isCompleted ? 'สำเร็จแล้ว (คลิกเพื่อยกเลิก)' : 'ทำสำเร็จแล้ว'}
+                                      </button>
+                                    </div>
+                                  </div>
+
+                                  {/* Exercises list in schedule */}
+                                  {schedule.details && schedule.details.length > 0 && (
+                                    <div style={{
+                                      borderTop: '1px dashed #e2e8f0',
+                                      marginTop: '12px',
+                                      paddingTop: '16px',
                                       display: 'flex',
-                                      alignItems: 'center',
-                                      gap: '6px',
-                                      padding: isCompleted ? '8px 16px' : '8px 18px',
-                                      fontSize: isCompleted ? '13px' : '13.5px',
-                                      fontWeight: '700',
-                                      borderRadius: '24px',
-                                      cursor: 'pointer',
-                                      transition: 'all 0.2s',
-                                      background: isCompleted ? '#e6f4ea' : '#48bb78',
-                                      color: isCompleted ? '#137333' : 'white',
-                                      border: isCompleted ? '1px solid #ceedd5' : 'none',
-                                      boxShadow: isCompleted ? 'none' : '0 2px 8px rgba(72, 187, 120, 0.3)',
-                                      flexShrink: 0
-                                    }}
-                                    title={isCompleted ? "คลิกเพื่อยกเลิกสถานะทำสำเร็จ" : "บันทึกว่าทำสำเร็จแล้ว (Approve)"}
-                                  >
-                                    <Check size={16} />
-                                    <span>{isCompleted ? 'สำเร็จแล้ว (ยกเลิก)' : 'ทำสำเร็จแล้ว'}</span>
-                                  </button>
+                                      flexDirection: 'column',
+                                      gap: '12px',
+                                      textAlign: 'left'
+                                    }}>
+                                      <span style={{ fontSize: '13px', fontWeight: '700', color: '#94a3b8' }}>
+                                        รายการท่าฝึกซ้อม:
+                                      </span>
+                                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
+                                        {schedule.details.map((detail, idx) => (
+                                          <div key={idx} style={{ background: '#f8fafc', padding: '16px 18px', borderRadius: '12px', border: '1px solid #f1f5f9', transition: 'all 0.2s' }}>
+                                            <span style={{ fontSize: '15px', fontWeight: '700', display: 'block', color: '#334155', marginBottom: '4px' }}>
+                                              {detail.exercise.name}
+                                            </span>
+                                            <span style={{ fontSize: '13px', color: '#10b981', fontWeight: '600' }}>
+                                              {detail.sets} เซ็ต × {detail.reps} ครั้ง <span style={{ color: '#94a3b8', fontWeight: 'normal' }}>({detail.durationSeconds} วินาที)</span>
+                                            </span>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
                                 </div>
-                              </div>
-                            );
-                          })}
+                              );
+                            } else {
+                              const event = item.event;
+                              const start = item.date;
+                              const isAllDay = !event.start.dateTime;
+                              const isToday = start.toDateString() === new Date().toDateString();
+                              const formattedDate = start.toLocaleDateString('th-TH', { weekday: 'long', day: 'numeric', month: 'short' });
+                              const startTime = isAllDay ? "ตลอดวัน" : start.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
+
+                              const cleanSummary = (event.summary || '').toLowerCase().replace(/\s*\(yourpaceevent\)\s*/gi, '').trim();
+                              const isCompleted = workoutSchedules.some(s => {
+                                if (s.status !== 'COMPLETED') return false;
+                                const cleanSTitle = (s.title || '').toLowerCase().replace(/\s*\(yourpaceevent\)\s*/gi, '').trim();
+                                return cleanSTitle.length > 0 && (cleanSTitle.includes(cleanSummary) || cleanSummary.includes(cleanSTitle));
+                              });
+
+                              return (
+                                <div
+                                  key={item.key}
+                                  style={{
+                                    border: isToday ? (isCompleted ? '1.5px solid #86efac' : '2px solid #10b981') : '1px solid #e2e8f0',
+                                    background: isToday
+                                      ? (isCompleted ? '#f0fdf4' : 'linear-gradient(180deg, #ffffff 0%, #f0fdf4 100%)')
+                                      : (isCompleted ? '#f8fafc' : '#ffffff'),
+                                    borderRadius: 'var(--radius-md)',
+                                    padding: '18px 20px',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '12px',
+                                    boxShadow: isToday ? '0 4px 18px rgba(16, 185, 129, 0.15)' : '0 2px 8px rgba(0,0,0,0.03)',
+                                    opacity: isCompleted ? 0.88 : 1,
+                                    transition: 'all 0.3s'
+                                  }}
+                                >
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                                    <div style={{ textAlign: 'left', flex: 1, minWidth: '200px' }}>
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px', flexWrap: 'wrap' }}>
+                                        <span style={{ fontSize: '11px', fontWeight: '800', color: '#047857', background: '#ecfdf5', padding: '2px 8px', borderRadius: '4px' }}>
+                                          Google Calendar Event
+                                        </span>
+                                        {isToday && (
+                                          <span style={{
+                                            fontSize: '11px',
+                                            fontWeight: '800',
+                                            background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                                            color: 'white',
+                                            padding: '2px 8px',
+                                            borderRadius: '10px',
+                                            boxShadow: '0 2px 6px rgba(16, 185, 129, 0.3)'
+                                          }}>
+                                            🌟 วันนี้ (Today)
+                                          </span>
+                                        )}
+                                        {isCompleted && (
+                                          <span style={{ fontSize: '11px', fontWeight: '800', color: '#15803d', background: '#dcfce7', padding: '2px 8px', borderRadius: '4px' }}>
+                                            COMPLETED
+                                          </span>
+                                        )}
+                                      </div>
+                                      <h4 style={{
+                                        fontSize: '16px',
+                                        fontWeight: '700',
+                                        margin: '4px 0 2px',
+                                        color: isCompleted ? 'var(--text-muted)' : '#0f172a',
+                                        textDecoration: isCompleted ? 'line-through' : 'none'
+                                      }}>
+                                        {event.summary ? event.summary.replace(/\s*\(YourPaceEvent\)\s*/gi, '').trim() : "(ไม่มีชื่อกิจกรรม)"}
+                                      </h4>
+                                      <span style={{ fontSize: '13px', color: isToday ? '#059669' : '#64748b', fontWeight: isToday ? '600' : 'normal' }}>
+                                        🗓️ {formattedDate} • ⏰ {startTime}
+                                      </span>
+                                    </div>
+
+                                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleOpenWarmupGuide(event.summary || '', event.description || '', 'warmup')}
+                                        style={{
+                                          padding: '7px 14px',
+                                          fontSize: '12.5px',
+                                          fontWeight: '700',
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          gap: '5px',
+                                          background: 'rgba(245, 158, 11, 0.1)',
+                                          color: '#b45309',
+                                          border: '1px solid rgba(245, 158, 11, 0.25)',
+                                          borderRadius: '20px',
+                                          cursor: 'pointer',
+                                          transition: 'all 0.2s'
+                                        }}
+                                        title="ดูคำแนะนำท่าวอร์มอัพก่อนซ้อม และท่าคูลดาวน์หลังซ้อมสำหรับกิจกรรมนี้"
+                                      >
+                                        <span>🧘 วอร์มอัพ/ยืดเหยียด</span>
+                                      </button>
+
+                                      <button
+                                        type="button"
+                                        onClick={() => handleToggleGCalEvent(event)}
+                                        style={{
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          gap: '6px',
+                                          padding: isCompleted ? '8px 16px' : '8px 18px',
+                                          fontSize: isCompleted ? '13px' : '13.5px',
+                                          fontWeight: '700',
+                                          borderRadius: '24px',
+                                          cursor: 'pointer',
+                                          transition: 'all 0.2s',
+                                          background: isCompleted ? '#e6f4ea' : '#48bb78',
+                                          color: isCompleted ? '#137333' : 'white',
+                                          border: isCompleted ? '1px solid #ceedd5' : 'none',
+                                          boxShadow: isCompleted ? 'none' : '0 2px 8px rgba(72, 187, 120, 0.3)',
+                                          flexShrink: 0
+                                        }}
+                                        title={isCompleted ? "คลิกเพื่อยกเลิกสถานะทำสำเร็จ" : "บันทึกว่าทำสำเร็จแล้ว (Approve)"}
+                                      >
+                                        <Check size={16} />
+                                        <span>{isCompleted ? 'สำเร็จแล้ว (ยกเลิก)' : 'ทำสำเร็จแล้ว'}</span>
+                                      </button>
+                                    </div>
+                                  </div>
+
+                                  {/* Event description / exercise details from Google Calendar */}
+                                  {event.description && (() => {
+                                    const lines = event.description.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+                                    const metaLines = lines.filter(l => /^(?:✅|⏱️|🔥|📝)/u.test(l));
+                                    const exerciseLines = lines.filter(l => /^[-–•]/.test(l));
+                                    const otherLines = lines.filter(l => !/^(?:✅|⏱️|🔥|📝)/u.test(l) && !/^[-–•]/.test(l));
+
+                                    return (
+                                      <div style={{
+                                        borderTop: '1px dashed #e2e8f0',
+                                        paddingTop: '14px',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        gap: '10px',
+                                        textAlign: 'left'
+                                      }}>
+                                        {metaLines.length > 0 && (
+                                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                                            {metaLines.map((line, i) => (
+                                              <span key={i} style={{
+                                                fontSize: '12px',
+                                                color: '#64748b',
+                                                background: '#f8fafc',
+                                                border: '1px solid #f1f5f9',
+                                                borderRadius: '8px',
+                                                padding: '3px 10px',
+                                              }}>{line}</span>
+                                            ))}
+                                          </div>
+                                        )}
+                                        {exerciseLines.length > 0 && (
+                                          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                            <span style={{ fontSize: '12px', fontWeight: '700', color: '#94a3b8' }}>🏋️ รายการท่าออกกำลังกาย:</span>
+                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', gap: '6px' }}>
+                                              {exerciseLines.map((line, i) => (
+                                                <div key={i} style={{
+                                                  background: '#f0fdf4',
+                                                  border: '1px solid #bbf7d0',
+                                                  borderRadius: '8px',
+                                                  padding: '6px 12px',
+                                                  fontSize: '12.5px',
+                                                  color: '#065f46',
+                                                  fontWeight: '500'
+                                                }}>
+                                                  {line.replace(/^[-–•]\s*/, '')}
+                                                </div>
+                                              ))}
+                                            </div>
+                                          </div>
+                                        )}
+                                        {otherLines.length > 0 && exerciseLines.length === 0 && (
+                                          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                            {otherLines.map((line, i) => (
+                                              <span key={i} style={{ fontSize: '12.5px', color: '#64748b' }}>{line}</span>
+                                            ))}
+                                          </div>
+                                        )}
+                                      </div>
+                                    );
+                                  })()}
+                                </div>
+                              );
+                            }
+                          });
+                        })()}
                       </div>
                     )}
                   </div>
@@ -3736,7 +3925,7 @@ function App() {
                       {progressAnalytics?.levelInfo?.currentExp || 0} <span style={{ fontSize: '13px', color: '#64748b', fontWeight: 'normal' }}>EXP</span>
                     </div>
                     <div style={{ width: '100%', height: '6px', background: '#f1f5f9', borderRadius: '3px', overflow: 'hidden', margin: '8px 0 6px' }}>
-                      <div style={{ width: `${progressAnalytics?.levelInfo?.progressPercentage || 10}%`, height: '100%', background: '#8b5cf6', borderRadius: '3px' }}></div>
+                      <div style={{ width: `${Math.min(100, Math.max(0, progressAnalytics?.levelInfo?.progressPercentage ?? 0))}%`, height: '100%', background: '#8b5cf6', borderRadius: '3px' }}></div>
                     </div>
                     <span style={{ fontSize: '11px', color: '#64748b' }}>
                       อีก {Math.max(0, (progressAnalytics?.levelInfo?.nextLevelExp || 500) - (progressAnalytics?.levelInfo?.currentExp || 0))} EXP สู่ระดับถัดไป
@@ -4137,6 +4326,243 @@ function App() {
           </div> {/* Close Dashboard Grid Layout */}
         </div> {/* Close .app-container */}
 
+        {/* Modal: n8n AI Workout Free-Time Planning with Custom Notes */}
+        {showN8nPlanModal && (
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            width: '100vw',
+            height: '100vh',
+            backgroundColor: 'rgba(15, 23, 42, 0.72)',
+            backdropFilter: 'blur(8px)',
+            zIndex: 999999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '16px',
+            overflowY: 'auto'
+          }}>
+            <div style={{
+              background: '#ffffff',
+              borderRadius: '20px',
+              maxWidth: '560px',
+              width: '100%',
+              padding: '28px',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+              textAlign: 'left',
+              maxHeight: '90vh',
+              overflowY: 'auto',
+              position: 'relative'
+            }}>
+              {/* Header */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px' }}>
+                <div>
+                  <h3 style={{ fontSize: '20px', fontWeight: '800', color: 'var(--text-dark)', margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <Bot size={24} color="#10b981" /> จัดเวลาว่างด้วย n8n AI
+                  </h3>
+                  <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>
+                    วิเคราะห์เวลาว่างจาก Google Calendar และปรับแต่งเงื่อนไขตามใจคุณ
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowN8nPlanModal(false)}
+                  style={{
+                    background: '#f1f5f9',
+                    border: 'none',
+                    fontSize: '14px',
+                    width: '32px',
+                    height: '32px',
+                    borderRadius: '50%',
+                    cursor: 'pointer',
+                    color: 'var(--text-muted)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* Google Calendar Status Badge */}
+              <div style={{
+                background: isCalendarConnected ? '#ecfdf5' : '#f8fafc',
+                border: isCalendarConnected ? '1px solid #a7f3d0' : '1px dashed #cbd5e1',
+                borderRadius: '12px',
+                padding: '12px 16px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                marginBottom: '18px'
+              }}>
+                <Calendar size={18} color={isCalendarConnected ? '#059669' : '#64748b'} />
+                <div style={{ fontSize: '12.5px', flex: 1 }}>
+                  {isCalendarConnected ? (
+                    <span style={{ color: '#065f46', fontWeight: '600' }}>
+                      เชื่อมต่อ Google Calendar แล้ว (พบ {calendarEvents.length} กิจกรรมในสัปดาห์นี้)
+                    </span>
+                  ) : (
+                    <span style={{ color: '#64748b' }}>
+                      ยังไม่ได้เชื่อมต่อ Google Calendar (AI จะวิเคราะห์และจัดสรรเวลาว่างมาตรฐานให้อัตโนมัติ)
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Number of workout days selector */}
+              <div style={{ marginBottom: '18px' }}>
+                <label style={{ fontSize: '13.5px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '8px' }}>
+                  🎯 ต้องการให้จัดตารางออกกำลังกายกี่วันในสัปดาห์นี้?
+                </label>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
+                  {[2, 3, 4, 5].map(days => (
+                    <button
+                      key={days}
+                      type="button"
+                      onClick={() => setN8nDaysCount(days)}
+                      style={{
+                        padding: '10px 8px',
+                        borderRadius: '10px',
+                        border: n8nDaysCount === days ? '2px solid #10b981' : '1px solid #e2e8f0',
+                        background: n8nDaysCount === days ? '#ecfdf5' : '#f8fafc',
+                        color: n8nDaysCount === days ? '#059669' : '#475569',
+                        fontWeight: '700',
+                        fontSize: '13.5px',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s',
+                        textAlign: 'center'
+                      }}
+                    >
+                      {days} วัน {days === 3 && <span style={{ fontSize: '10px', display: 'block', fontWeight: 'normal', color: '#10b981' }}>(แนะนำ)</span>}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Custom Notes / Constraints textarea */}
+              <div style={{ marginBottom: '18px' }}>
+                <label style={{ fontSize: '13.5px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '6px' }}>
+                  📝 แนบเงื่อนไขหรือคำขอพิเศษเพิ่มเติมให้ AI (Optional)
+                </label>
+                <p style={{ fontSize: '12px', color: '#64748b', margin: '0 0 8px 0' }}>
+                  ระบุวันที่ติดธุระ วันที่ต้องการงด หรือช่วงเวลาที่ต้องการเน้น เช่น วันเสาร์ไม่สะดวก, ขอเน้นช่วงเช้า
+                </p>
+                <textarea
+                  value={n8nCustomNote}
+                  onChange={(e) => setN8nCustomNote(e.target.value)}
+                  placeholder="เช่น: วันเสาร์ติดงานทั้งวันไม่สะดวกออกกำลังกาย, ขอเน้นช่วงเช้าก่อน 08:00 เท่านั้น, วันพุธขอแบบเบาๆ ฯลฯ"
+                  rows={3}
+                  style={{
+                    width: '100%',
+                    padding: '12px 14px',
+                    borderRadius: '10px',
+                    border: '1.5px solid #cbd5e1',
+                    fontSize: '13.5px',
+                    fontFamily: 'inherit',
+                    lineHeight: '1.5',
+                    resize: 'vertical',
+                    outline: 'none',
+                    boxSizing: 'border-box'
+                  }}
+                />
+
+                {/* Quick Presets */}
+                <div style={{ marginTop: '10px' }}>
+                  <span style={{ fontSize: '11.5px', fontWeight: '700', color: '#64748b', display: 'block', marginBottom: '6px' }}>
+                    ⚡ เงื่อนไขด่วนที่พบบ่อย (คลิกเพื่อเพิ่ม):
+                  </span>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                    {[
+                      { label: '🚫 วันเสาร์ติดงาน (งดวันเสาร์)', text: 'วันเสาร์ติดงานทั้งวัน งดจัดกิจกรรมวันเสาร์' },
+                      { label: '🚫 งดวันเสาร์-อาทิตย์', text: 'เสาร์และอาทิตย์ไม่สะดวก ขอจัดเฉพาะวันธรรมดา' },
+                      { label: '🌅 เน้นช่วงเช้า (06:30 - 08:00)', text: 'ขอเน้นจัดช่วงเช้าเวลา 06:30 - 08:00 น.' },
+                      { label: '🌇 เน้นช่วงเย็น (17:30 - 19:00)', text: 'ขอเน้นจัดช่วงเย็นหลังเลิกงาน 17:30 - 19:00 น.' },
+                      { label: '🧘 ขอแบบ Low Impact (ไม่กระโดด)', text: 'ขอท่าออกกำลังกายแบบ Low Impact ไม่กระโดด ไม่กระทบเข่า' },
+                      { label: '💪 บอดี้เวท 30 นาที', text: 'เน้นบอดี้เวทใช้เวลาประมาณ 30 นาที' }
+                    ].map((preset, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => {
+                          if (n8nCustomNote.includes(preset.text)) return;
+                          setN8nCustomNote(prev => prev ? `${prev}, ${preset.text}` : preset.text);
+                        }}
+                        style={{
+                          fontSize: '11.5px',
+                          padding: '4px 10px',
+                          borderRadius: '16px',
+                          background: '#f1f5f9',
+                          color: '#334155',
+                          border: '1px solid #e2e8f0',
+                          cursor: 'pointer',
+                          fontWeight: '600',
+                          transition: 'all 0.15s'
+                        }}
+                      >
+                        {preset.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '22px' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowN8nPlanModal(false)}
+                  disabled={isN8nPlanning}
+                  style={{
+                    padding: '10px 18px',
+                    borderRadius: '10px',
+                    border: '1px solid #cbd5e1',
+                    background: '#ffffff',
+                    color: '#475569',
+                    fontSize: '13.5px',
+                    fontWeight: '700',
+                    cursor: 'pointer'
+                  }}
+                >
+                  ยกเลิก
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => handlePlanFreeTimeWithN8N(e, n8nCustomNote, n8nDaysCount)}
+                  disabled={isN8nPlanning}
+                  className="btn btn-primary"
+                  style={{
+                    padding: '10px 24px',
+                    borderRadius: '10px',
+                    fontSize: '13.5px',
+                    fontWeight: '700',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    cursor: isN8nPlanning ? 'not-allowed' : 'pointer',
+                    opacity: isN8nPlanning ? 0.7 : 1
+                  }}
+                >
+                  {isN8nPlanning ? (
+                    <>
+                      <div className="spinner" style={{ width: '15px', height: '15px', border: '2px solid rgba(255,255,255,0.3)', borderTop: '2px solid white', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
+                      <span>กำลังส่ง Prompt ให้ AI วางแผน...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles size={16} />
+                      <span>✨ ให้ AI จัดตารางเวลาว่างทันที</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Log Calories Burned Modal (Manual Workout Logging) - Fullscreen Overlay */}
         {showLogBurnModal && (
           <div style={{
@@ -4349,6 +4775,7 @@ function App() {
                         <button
                           key={lvl.key}
                           type="button"
+                          title={aiDesc || lvl.defaultDesc}
                           onClick={() => handleBurnIntensityChange(lvl.key)}
                           style={{
                             padding: '8px 6px',
@@ -5338,6 +5765,429 @@ function App() {
             </div>
           </div>
         )}
+
+        {/* Modal: Warm-up & Cool-down Routine Guide */}
+        {showWarmupModal && (() => {
+          const currentGuide = WARMUP_COOLDOWN_DATA[warmupCategory] || WARMUP_COOLDOWN_DATA.CORE_CARDIO;
+          const exercises = warmupSelectedTab === 'warmup' ? currentGuide.warmupExercises : currentGuide.cooldownExercises;
+          const completedInThisTab = exercises.filter(ex => completedWarmupIds.has(ex.id)).length;
+          const progressPercent = exercises.length > 0 ? Math.round((completedInThisTab / exercises.length) * 100) : 0;
+
+          return (
+            <div
+              style={{
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                backgroundColor: 'rgba(15, 23, 42, 0.65)',
+                backdropFilter: 'blur(6px)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                zIndex: 99999,
+                padding: '16px'
+              }}
+              onClick={() => setShowWarmupModal(false)}
+            >
+              <div
+                style={{
+                  background: '#ffffff',
+                  borderRadius: '20px',
+                  maxWidth: '750px',
+                  width: '100%',
+                  maxHeight: '90vh',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+                  overflow: 'hidden',
+                  textAlign: 'left',
+                  animation: 'modalSlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
+                }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                {/* Modal Header */}
+                <div style={{
+                  padding: '20px 24px',
+                  borderBottom: '1px solid #f1f5f9',
+                  background: warmupSelectedTab === 'warmup'
+                    ? 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)'
+                    : 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center'
+                }}>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                      <span style={{
+                        fontSize: '20px',
+                        background: 'white',
+                        padding: '4px 8px',
+                        borderRadius: '10px',
+                        boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+                      }}>
+                        {warmupSelectedTab === 'warmup' ? '🔥' : '❄️'}
+                      </span>
+                      <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a', margin: 0 }}>
+                        {warmupSelectedTab === 'warmup' ? 'คู่มือวอร์มอัพก่อนออกกำลังกาย (Warm-up)' : 'คู่มือคูลดาวน์และยืดเหยียด (Cool-down)'}
+                      </h3>
+                    </div>
+                    <p style={{ fontSize: '12.5px', color: '#64748b', margin: 0 }}>
+                      {warmupModalTitle ? `สำหรับโปรแกรม: ${warmupModalTitle}` : 'เตรียมร่างกายและป้องกันการบาดเจ็บตามหลักวิทยาศาสตร์การกีฬา'}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowWarmupModal(false)}
+                    style={{
+                      background: 'white',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '50%',
+                      width: '34px',
+                      height: '34px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      cursor: 'pointer',
+                      color: '#64748b',
+                      boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+                    }}
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+
+                {/* Sub-Header: Phase Tabs & Category Selector */}
+                <div style={{ padding: '14px 24px 10px', borderBottom: '1px solid #f1f5f9', background: '#f8fafc' }}>
+                  {/* Phase Tabs: Warm-up vs Cool-down */}
+                  <div style={{
+                    display: 'flex',
+                    background: '#e2e8f0',
+                    borderRadius: '12px',
+                    padding: '4px',
+                    gap: '4px',
+                    marginBottom: '12px'
+                  }}>
+                    <button
+                      type="button"
+                      onClick={() => setWarmupSelectedTab('warmup')}
+                      style={{
+                        flex: 1,
+                        padding: '9px 16px',
+                        borderRadius: '9px',
+                        border: 'none',
+                        background: warmupSelectedTab === 'warmup' ? '#ffffff' : 'transparent',
+                        color: warmupSelectedTab === 'warmup' ? '#b45309' : '#64748b',
+                        fontWeight: '700',
+                        fontSize: '13.5px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '6px',
+                        boxShadow: warmupSelectedTab === 'warmup' ? '0 2px 6px rgba(0,0,0,0.08)' : 'none',
+                        transition: 'all 0.2s'
+                      }}
+                    >
+                      <Flame size={16} color={warmupSelectedTab === 'warmup' ? '#f59e0b' : '#64748b'} />
+                      <span>1. Warm-up ก่อนซ้อม (5-7 นาที)</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setWarmupSelectedTab('cooldown')}
+                      style={{
+                        flex: 1,
+                        padding: '9px 16px',
+                        borderRadius: '9px',
+                        border: 'none',
+                        background: warmupSelectedTab === 'cooldown' ? '#ffffff' : 'transparent',
+                        color: warmupSelectedTab === 'cooldown' ? '#1d4ed8' : '#64748b',
+                        fontWeight: '700',
+                        fontSize: '13.5px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '6px',
+                        boxShadow: warmupSelectedTab === 'cooldown' ? '0 2px 6px rgba(0,0,0,0.08)' : 'none',
+                        transition: 'all 0.2s'
+                      }}
+                    >
+                      <Droplets size={16} color={warmupSelectedTab === 'cooldown' ? '#3b82f6' : '#64748b'} />
+                      <span>2. Cool-down & ยืดเหยียด (5-7 นาที)</span>
+                    </button>
+                  </div>
+
+                  {/* Muscle Group Switcher */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: '12px', fontWeight: '700', color: '#64748b' }}>กลุ่มเป้าหมาย:</span>
+                    {[
+                      { key: 'UPPER_BODY', label: '💪 ท่อนบน (Upper Body)' },
+                      { key: 'LOWER_BODY', label: '🦵 ท่อนล่าง (Lower Body)' },
+                      { key: 'CORE_CARDIO', label: '⚡ แกนกลาง & คาร์ดิโอ (Core/Cardio)' }
+                    ].map(cat => (
+                      <button
+                        key={cat.key}
+                        type="button"
+                        onClick={() => setWarmupCategory(cat.key)}
+                        style={{
+                          fontSize: '12px',
+                          padding: '4px 12px',
+                          borderRadius: '16px',
+                          border: warmupCategory === cat.key ? '1px solid #10b981' : '1px solid #e2e8f0',
+                          background: warmupCategory === cat.key ? '#ecfdf5' : '#ffffff',
+                          color: warmupCategory === cat.key ? '#047857' : '#64748b',
+                          fontWeight: warmupCategory === cat.key ? '700' : '500',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s'
+                        }}
+                      >
+                        {cat.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Modal Body: Exercises List */}
+                <div style={{ padding: '20px 24px', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  {/* Expert Advice Tip Box */}
+                  <div style={{
+                    background: warmupSelectedTab === 'warmup' ? '#fffbeb' : '#f0f9ff',
+                    border: warmupSelectedTab === 'warmup' ? '1px solid #fef3c7' : '1px solid #e0f2fe',
+                    borderRadius: '12px',
+                    padding: '12px 16px',
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: '10px'
+                  }}>
+                    <Lightbulb size={20} color={warmupSelectedTab === 'warmup' ? '#d97706' : '#0284c7'} style={{ flexShrink: 0, marginTop: '2px' }} />
+                    <div>
+                      <span style={{ fontSize: '13px', fontWeight: '700', color: warmupSelectedTab === 'warmup' ? '#92400e' : '#0369a1', display: 'block', marginBottom: '2px' }}>
+                        💡 คำแนะนำจากผู้เชี่ยวชาญ:
+                      </span>
+                      <p style={{ fontSize: '12.5px', color: warmupSelectedTab === 'warmup' ? '#78350f' : '#0c4a6e', margin: 0, lineHeight: 1.5 }}>
+                        {warmupSelectedTab === 'warmup' ? currentGuide.warmupTip : currentGuide.cooldownTip}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Progress Header */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '13.5px', fontWeight: '800', color: '#334155' }}>
+                      📋 รายการท่าฝึก ({exercises.length} ท่า)
+                    </span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '12px', color: '#64748b', fontWeight: '600' }}>
+                        ทำแล้ว {completedInThisTab}/{exercises.length} ท่า
+                      </span>
+                      <div style={{ width: '80px', height: '6px', background: '#e2e8f0', borderRadius: '4px', overflow: 'hidden' }}>
+                        <div style={{
+                          width: `${progressPercent}%`,
+                          height: '100%',
+                          background: warmupSelectedTab === 'warmup' ? '#f59e0b' : '#3b82f6',
+                          transition: 'width 0.3s'
+                        }}></div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Exercises Grid */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {exercises.map((exercise, idx) => {
+                      const isDone = completedWarmupIds.has(exercise.id);
+
+                      return (
+                        <div
+                          key={exercise.id}
+                          style={{
+                            border: isDone ? '1px solid #86efac' : '1px solid #e2e8f0',
+                            background: isDone ? '#f0fdf4' : '#ffffff',
+                            borderRadius: '14px',
+                            padding: '14px 18px',
+                            display: 'flex',
+                            gap: '14px',
+                            alignItems: 'flex-start',
+                            transition: 'all 0.2s',
+                            boxShadow: isDone ? 'none' : '0 2px 6px rgba(0,0,0,0.02)'
+                          }}
+                        >
+                          {/* Left: Step / Icon */}
+                          <div style={{
+                            width: '42px',
+                            height: '42px',
+                            borderRadius: '12px',
+                            background: isDone ? '#dcfce7' : '#f8fafc',
+                            border: isDone ? '1px solid #bbf7d0' : '1px solid #f1f5f9',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '20px',
+                            flexShrink: 0
+                          }}>
+                            {exercise.icon}
+                          </div>
+
+                          {/* Middle: Exercise Info & Instructions */}
+                          <div style={{ flex: 1 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '4px' }}>
+                              <span style={{ fontSize: '11px', fontWeight: '800', color: '#94a3b8' }}>
+                                #{idx + 1}
+                              </span>
+                              <h4 style={{
+                                fontSize: '15px',
+                                fontWeight: '700',
+                                color: isDone ? '#166534' : '#0f172a',
+                                margin: 0,
+                                textDecoration: isDone ? 'line-through' : 'none'
+                              }}>
+                                {exercise.nameTh}
+                              </h4>
+                              <span style={{ fontSize: '12px', color: '#64748b' }}>
+                                ({exercise.name})
+                              </span>
+                            </div>
+
+                            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', margin: '4px 0 8px' }}>
+                              <span style={{
+                                fontSize: '11.5px',
+                                fontWeight: '700',
+                                color: warmupSelectedTab === 'warmup' ? '#b45309' : '#1d4ed8',
+                                background: warmupSelectedTab === 'warmup' ? '#fef3c7' : '#dbeafe',
+                                padding: '2px 8px',
+                                borderRadius: '6px'
+                              }}>
+                                ⏱️ {exercise.duration}
+                              </span>
+                              <span style={{
+                                fontSize: '11.5px',
+                                color: '#475569',
+                                background: '#f1f5f9',
+                                padding: '2px 8px',
+                                borderRadius: '6px'
+                              }}>
+                                🎯 {exercise.target}
+                              </span>
+                            </div>
+
+                            <p style={{ fontSize: '12.5px', color: '#475569', margin: 0, lineHeight: 1.5 }}>
+                              {exercise.instructions}
+                            </p>
+                          </div>
+
+                          {/* Right: Check Action */}
+                          <button
+                            type="button"
+                            onClick={() => handleToggleWarmupCheck(exercise.id)}
+                            style={{
+                              border: isDone ? 'none' : '1.5px solid #cbd5e1',
+                              background: isDone ? '#10b981' : '#ffffff',
+                              color: isDone ? '#ffffff' : '#64748b',
+                              borderRadius: '50%',
+                              width: '32px',
+                              height: '32px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              cursor: 'pointer',
+                              flexShrink: 0,
+                              marginTop: '4px',
+                              transition: 'all 0.2s',
+                              boxShadow: isDone ? '0 2px 6px rgba(16, 185, 129, 0.4)' : 'none'
+                            }}
+                            title={isDone ? "คลิกเพื่อยกเลิกการติ๊ก" : "คลิกเมื่อทำท่านี้เสร็จแล้ว"}
+                          >
+                            <Check size={16} />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Modal Footer */}
+                <div style={{
+                  padding: '16px 24px',
+                  borderTop: '1px solid #f1f5f9',
+                  background: '#f8fafc',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  flexWrap: 'wrap',
+                  gap: '10px'
+                }}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setWarmupSelectedTab(prev => prev === 'warmup' ? 'cooldown' : 'warmup');
+                    }}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: '#0284c7',
+                      fontSize: '13px',
+                      fontWeight: '700',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}
+                  >
+                    <span>{warmupSelectedTab === 'warmup' ? '➡️ สลับไปดูท่า Cool-down หลังซ้อม' : '⬅️ สลับไปดูท่า Warm-up ก่อนซ้อม'}</span>
+                  </button>
+
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    {completedInThisTab > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCompletedWarmupIds(prev => {
+                            const next = new Set(prev);
+                            exercises.forEach(ex => next.delete(ex.id));
+                            return next;
+                          });
+                        }}
+                        style={{
+                          padding: '8px 14px',
+                          borderRadius: '8px',
+                          border: '1px solid #cbd5e1',
+                          background: '#ffffff',
+                          color: '#64748b',
+                          fontSize: '12.5px',
+                          fontWeight: '600',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        ล้างการติ๊ก
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setShowWarmupModal(false)}
+                      style={{
+                        padding: '9px 22px',
+                        borderRadius: '10px',
+                        border: 'none',
+                        background: '#10b981',
+                        color: 'white',
+                        fontWeight: '700',
+                        fontSize: '13.5px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        boxShadow: '0 2px 8px rgba(16, 185, 129, 0.3)'
+                      }}
+                    >
+                      <Check size={16} />
+                      <span>เข้าใจแล้ว พร้อมออกกำลังกาย</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Floating Action Button (FAB) when Chat is closed - Truly Fixed to Viewport Bottom Right */}
         {!isChatOpen && (

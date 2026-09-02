@@ -5,9 +5,9 @@ services:
     container_name: youpace_db
     restart: always
     environment:
-      POSTGRES_USER: root
-      POSTGRES_PASSWORD: password123
-      POSTGRES_DB: youPace_DB
+      POSTGRES_USER: ${POSTGRES_USER:-root}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password123}
+      POSTGRES_DB: ${POSTGRES_DB:-youPace_DB}
     ports:
       - "5432:5432"
     volumes:
@@ -33,19 +33,23 @@ services:
     ports:
       - "8081:8080"
     environment:
-      PORT: 8080
-      DB_HOST: db
-      DB_PORT: 5432
-      DB_USER: root
-      DB_PASSWORD: password123
-      DB_NAME: youPace_DB
-      DB_SSLMODE: disable
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-      JWT_SECRET: uV9yK3j5YhN8Lx2QpW7eZ0rJtB6nMfLgSxAaCdEfGhI=
-      N8N_URL: http://n8n:5678/webhook/yourpace-ai
-      GEMINI_API_KEY: ""
-      GEMINI_URL: https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent
+      PORT: ${PORT:-8080}
+      DB_HOST: ${DB_HOST:-db}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_USER: ${POSTGRES_USER:-root}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-password123}
+      DB_NAME: ${POSTGRES_DB:-youPace_DB}
+      DB_SSLMODE: ${DB_SSLMODE:-disable}
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      JWT_SECRET: ${JWT_SECRET}
+      N8N_URL: ${N8N_URL:-http://n8n:5678/webhook/yourpace-ai}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      GEMINI_URL: ${GEMINI_URL:-https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent}
+      MAIL_ENABLED: ${MAIL_ENABLED:-false}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI:-http://localhost:8081/api/calendar/callback}
     depends_on:
       - db
       - redis

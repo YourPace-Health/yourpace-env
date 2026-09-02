@@ -1,0 +1,29 @@
+# Local environment files
+.env
+.env.*
+*.env
+Your Client ID and Your Client Secret.txt
+client_secret_*.json
+client_secret.json
+
+# Executables
+main
+main.exe
+youpace
+youpace.exe
+youpace_test
+youpace_test.exe
+yourpace-backend
+yourpace-backend.exe
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Database and Caches
+n8n_data/
+.scannerwork/
+*.log
+
+# Uploads
+uploads/

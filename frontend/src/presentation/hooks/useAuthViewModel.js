@@ -49,7 +49,26 @@ export function useAuthViewModel() {
 
   // ตรวจสอบสถานะการ Stay Signed In เมื่อผู้ใช้เปิดหน้าเว็บ
   useEffect(() => {
-    checkSession();
+    let isMounted = true;
+    const restoreSession = async () => {
+      setIsLoading(true);
+      try {
+        const user = await authRepository.getCurrentUser();
+        if (isMounted && user) {
+          setCurrentUser(user);
+        }
+      } catch (err) {
+        console.error("Error restoring session:", err);
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    };
+    restoreSession();
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const loginWithEmail = async (email, password, staySignedIn) => {
@@ -136,6 +155,23 @@ export function useAuthViewModel() {
     }
   };
 
+  const verifyMagicLink = async (token) => {
+    setIsLoading(true);
+    setError(null);
+    setSuccessMessage(null);
+    try {
+      const result = await authRepository.verifyMagicLink(token);
+      setCurrentUser(result.user);
+      setSuccessMessage("เข้าสู่ระบบด้วย Magic Link สำเร็จ!");
+      return result.user;
+    } catch (err) {
+      setError(err.message || "ลิงก์เข้าสู่ระบบไม่ถูกต้องหรือหมดอายุ");
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const requestResetPassword = async (email) => {
     setIsLoading(true);
     setError(null);
@@ -158,7 +194,7 @@ export function useAuthViewModel() {
       await authRepository.logout();
       setCurrentUser(null);
       setSuccessMessage("ออกจากระบบเรียบร้อยแล้ว");
-    } catch (err) {
+    } catch (_err) {
       setError("ไม่สามารถออกจากระบบได้");
     } finally {
       setIsLoading(false);
@@ -186,6 +222,7 @@ export function useAuthViewModel() {
     confirmOTP,
     loginWithGoogle,
     requestMagicLink,
+    verifyMagicLink,
     requestResetPassword,
     logout
   };

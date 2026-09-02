@@ -258,7 +258,9 @@ func GetGoogleCalendarEvents(c echo.Context) error {
 		log.Println("Google Access Token expired, refreshing...")
 		if err := RefreshGoogleToken(&googleToken); err != nil {
 			log.Printf("Failed to refresh google token: %v", err)
-			return c.JSON(http.StatusForbidden, map[string]string{"error": "google calendar token expired, please reconnect"})
+			// Delete expired/revoked token so user is prompted to reconnect
+			config.DB.Where("user_id = ?", userID).Delete(&models.UserGoogleToken{})
+			return c.JSON(http.StatusForbidden, map[string]string{"error": "google calendar token expired or revoked, please reconnect"})
 		}
 	}
 
@@ -488,3 +490,90 @@ func CreateGoogleCalendarWorkoutEvent(userID uuid.UUID, title string, scheduledD
 	log.Printf("Successfully created Google Calendar event: %s for user %s", cleanTitle, userID)
 	return nil
 }
+
+// DeleteGoogleCalendarWorkoutEvents deletes all workout schedule events (marked with YourPaceEvent) from Google Calendar
+func DeleteGoogleCalendarWorkoutEvents(userID uuid.UUID) error {
+	var googleToken models.UserGoogleToken
+	if err := config.DB.Where("user_id = ?", userID).First(&googleToken).Error; err != nil {
+		return nil
+	}
+
+	if time.Now().After(googleToken.Expiry) {
+		if err := RefreshGoogleToken(&googleToken); err != nil {
+			log.Printf("Failed to refresh google token for calendar event deletion: %v", err)
+			return err
+		}
+	}
+
+	// Fetch events for past 14 days and next 30 days
+	timeMin := time.Now().AddDate(0, 0, -14).Format(time.RFC3339)
+	timeMax := time.Now().AddDate(0, 0, 30).Format(time.RFC3339)
+
+	apiURL := fmt.Sprintf(
+		"https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=%s&timeMax=%s&singleEvents=true",
+		url.QueryEscape(timeMin),
+		url.QueryEscape(timeMax),
+	)
+
+	req, err := http.NewRequest("GET", apiURL, nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", googleToken.AccessToken))
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("failed to fetch events for deletion: status %d", resp.StatusCode)
+	}
+
+	var eventsResp struct {
+		Items []struct {
+			ID      string `json:"id"`
+			Summary string `json:"summary"`
+		} `json:"items"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&eventsResp); err != nil {
+		return err
+	}
+
+	deletedCount := 0
+	for _, item := range eventsResp.Items {
+		if strings.Contains(strings.ToLower(item.Summary), "yourpaceevent") {
+			delURL := fmt.Sprintf("https://www.googleapis.com/calendar/v3/calendars/primary/events/%s", item.ID)
+			delReq, err := http.NewRequest("DELETE", delURL, nil)
+			if err == nil {
+				delReq.Header.Set("Authorization", fmt.Sprintf("Bearer %s", googleToken.AccessToken))
+				delResp, delErr := client.Do(delReq)
+				if delErr == nil {
+					delResp.Body.Close()
+					deletedCount++
+				}
+			}
+		}
+	}
+
+	log.Printf("Deleted %d YourPace workout events from Google Calendar for user %s", deletedCount, userID)
+	return nil
+}
+
+// DeleteGoogleCalendarWorkoutEventsHandler handles HTTP DELETE to clear yourpace events from Google Calendar
+func DeleteGoogleCalendarWorkoutEventsHandler(c echo.Context) error {
+	userID, err := ExtractUserID(c)
+	if err != nil {
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+	}
+
+	if err := DeleteGoogleCalendarWorkoutEvents(userID); err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to delete calendar events"})
+	}
+
+	return c.JSON(http.StatusOK, map[string]string{"message": "workout calendar events deleted successfully"})
+}
+

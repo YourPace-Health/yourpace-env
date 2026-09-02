@@ -14,7 +14,7 @@ func getJwtSecret() []byte {
 	if len(jwtSecret) == 0 {
 		secret := os.Getenv("JWT_SECRET")
 		if secret == "" {
-			secret = "uV9yK3j5YhN8Lx2QpW7eZ0rJtB6nMfLgSxAaCdEfGhI="
+			secret = "your_default_jwt_secret_key_change_in_production"
 		}
 		jwtSecret = []byte(secret)
 	}
@@ -46,6 +46,19 @@ func GenerateRefreshToken(email string) (string, error) {
 		Type:  "refresh",
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(30 * 24 * time.Hour)), // 30 days
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+		},
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token.SignedString(getJwtSecret())
+}
+
+func GenerateMagicToken(email string) (string, error) {
+	claims := TokenClaims{
+		Email: email,
+		Type:  "magic",
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(15 * time.Minute)), // 15 minutes
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 		},
 	}

@@ -26,6 +26,7 @@ type ChatRequest struct {
 type N8NPlanRequest struct {
 	CalendarEvents []map[string]interface{} `json:"calendarEvents"`
 	UserNote       string                   `json:"userNote"`
+	DaysCount      int                      `json:"daysCount"`
 }
 
 func ChatWithMentor(c echo.Context) error {
@@ -359,8 +360,15 @@ func PlanWorkoutInFreeTimeWithN8N(c echo.Context) error {
 		return c.JSON(http.StatusNotFound, map[string]string{"error": "user not found"})
 	}
 
+	loc, errLoc := time.LoadLocation("Asia/Bangkok")
+	if errLoc != nil {
+		loc = time.FixedZone("ICT", 7*3600)
+	}
+	now := time.Now().In(loc)
+	todayStr := now.Format("02/01/2006")
+
 	// Format calendar events for AI prompt context
-	eventsSummary := "ไม่มีนัดหมายในตารางงาน"
+	eventsSummary := "ไม่มีนัดหมายในตารางงาน (ผู้ใช้มีเวลาว่างตลอดทั้งสัปดาห์)"
 	if len(req.CalendarEvents) > 0 {
 		eventsSummary = ""
 		for idx, ev := range req.CalendarEvents {
@@ -379,8 +387,18 @@ func PlanWorkoutInFreeTimeWithN8N(c echo.Context) error {
 		}
 	}
 
+	daysTarget := req.DaysCount
+	if daysTarget <= 0 {
+		daysTarget = 3
+	}
+
+	userNotesText := "ไม่มีเงื่อนไขเพิ่มเติม"
+	if strings.TrimSpace(req.UserNote) != "" {
+		userNotesText = strings.TrimSpace(req.UserNote)
+	}
+
 	prompt := fmt.Sprintf(`คุณคือ AI Personal Health & Fitness Mentor ประจำแพลตฟอร์ม youPace.
-ผู้ใช้ต้องการให้คุณช่วยวางแผนและออกแบบตารางออกกำลังกายใน "ช่วงเวลาว่างที่ไม่มีนัดหมาย" จากตารางงาน Google Calendar สัปดาห์นี้
+ผู้ใช้ต้องการให้คุณช่วยวางแผนและออกแบบตารางออกกำลังกายใน "ช่วงเวลาว่างที่ไม่มีนัดหมาย" จากตารางงาน Google Calendar สำหรับ 7 วันข้างหน้า (เริ่มตั้งแต่วันนี้ %s เป็นต้นไป)
 
 === ข้อมูลส่วนบุคคลและเงื่อนไขสุขภาพของผู้ใช้ ===
 - ชื่อผู้ใช้: %s
@@ -395,18 +413,37 @@ func PlanWorkoutInFreeTimeWithN8N(c echo.Context) error {
 === ตารางนัดหมาย/กิจกรรมทั้งหมดใน Google Calendar สัปดาห์นี้ ===
 %s
 
+=== เงื่อนไขหรือคำขอพิเศษเพิ่มเติมจากผู้ใช้ (สำคัญที่สุด) ===
+%s
+
 คำสั่งและข้อกำหนด:
-1. วิเคราะห์ช่วงเวลาว่างที่ไม่มีนัดหมายซ้อนทับจาก Google Calendar ข้างต้น
-2. วางแผนตารางการออกกำลังกายในเวลาว่างดังกล่าวให้เหมาะสมที่สุดตามเป้าหมาย อุปกรณ์ที่มี และข้อจำกัดทางร่างกาย
-3. ตอบกลับเป็นภาษาไทยที่สุภาพ สละสลวย อ่านง่าย ไม่ใช้คำสะกดผิดหรือคำทับศัพท์แปลกๆ (เช่น ห้ามใช้คำว่า "ความisko", "ได้ทรงศักยภาพ" ฯลฯ) โดยสรุปเป็นรายวันอย่างเป็นระเบียบ`,
-		user.Username, user.Age, user.Gender, user.Height, user.Weight, user.FitnessGoal, user.EquipmentOwned, user.PhysicalLimitations, eventsSummary)
+1. วิเคราะห์ช่วงเวลาว่างที่ไม่มีนัดหมายซ้อนทับจาก Google Calendar ข้างต้น (หรือหากไม่มีนัดหมาย ให้เลือกช่วงเวลาว่างที่เหมาะสมในแต่ละวัน เช่น ช่วงเช้า 07:00-08:00 หรือ ช่วงเย็น 17:30-18:30)
+2. ปฏิบัติตาม "เงื่อนไขหรือคำขอพิเศษเพิ่มเติมจากผู้ใช้" อย่างเคร่งครัด 100%% (เช่น หากผู้ใช้ระบุว่างดวันเสาร์, วันเสาร์ไม่ว่าง, งดออกกำลังกายวันใด หรือต้องการเน้นเฉพาะช่วงเวลาใด ห้ามจัดตารางในวันหรือเวลาที่ผู้ใช้ไม่สะดวกเด็ดขาด)
+3. วางแผนตารางการออกกำลังกายจำนวน %d วันในรอบ 7 วันนี้ ให้เหมาะสมที่สุดตามเป้าหมาย อุปกรณ์ที่มี ข้อจำกัดทางร่างกาย และเงื่อนไขพิเศษที่ผู้ใช้ระบุ
+4. เขียนข้อความทักทายและอธิบายภาพรวมแผนการออกกำลังกายเป็นภาษาไทยที่สุภาพ เป็นกันเอง และให้กำลังใจ
+5. **สำคัญมาก**: สำหรับแต่ละวันที่คุณจัดตารางซ้อม คุณต้องระบุบล็อกรูปแบบแท็กโครงสร้างดังนี้ต่อท้ายข้อความ เพื่อให้ระบบนำไปบันทึกลงตารางซ้อมและการ์ดกิจกรรมอัตโนมัติ (ห้ามละเว้นรูปแบบแท็กนี้เด็ดขาด):
+
+[TIME: DD/MM/YYYY HH:MM ถึง HH:MM] [EVENT: ชื่อโปรแกรมการฝึก] [INTENSITY: MODERATE] [DESC:
+- ชื่อท่าฝึกที่ 1 (เซ็ต x ครั้ง)
+- ชื่อท่าฝึกที่ 2 (เซ็ต x ครั้ง)
+- ชื่อท่าฝึกที่ 3 (เซ็ต x ครั้ง)
+เผาผลาญประมาณ: 250 kcal
+ประโยชน์และคำแนะนำ: คำแนะนำสั้นๆ สำหรับวันนี้]
+
+ตัวอย่างวันที่: ใช้วันที่จริงรูปแบบ วัน/เดือน/ปี ค.ศ. เช่น %s เป็นต้น`,
+		todayStr, user.Username, user.Age, user.Gender, user.Height, user.Weight, user.FitnessGoal, user.EquipmentOwned, user.PhysicalLimitations, eventsSummary, userNotesText, daysTarget, todayStr)
 
 	reply, err := services.CallGemini(prompt)
 	if err != nil {
 		reply = "[n8n Error] ไม่สามารถเชื่อมต่อกับ n8n AI ได้: " + err.Error()
 	}
-	// Note: Events are not saved to DB automatically upon creation anymore.
-	// They will be saved to DB when the user clicks "ทำสำเร็จ" (Mark Completed).
+
+	// Parse and save schedules to DB & sync to Google Calendar
+	createdCount := parseAndSaveN8NSchedules(userID, reply)
+	if createdCount == 0 && err == nil {
+		// Fallback to ensure user always gets schedules created
+		generateSmartFallbackSchedule(userID, user)
+	}
 
 	return c.JSON(http.StatusOK, map[string]string{
 		"response": reply,
@@ -419,15 +456,20 @@ func parseAndSaveN8NSchedules(userID uuid.UUID, aiReply string) int {
 		return 0
 	}
 
+	loc, errLoc := time.LoadLocation("Asia/Bangkok")
+	if errLoc != nil {
+		loc = time.FixedZone("ICT", 7*3600)
+	}
+	today := time.Now().In(loc)
 	createdCount := 0
-	today := time.Now()
 
-	for _, block := range timeBlocks[1:] {
+	for idx, block := range timeBlocks[1:] {
 		fullBlock := "[TIME:" + block
 
 		reTime := regexp.MustCompile(`\[TIME:\s*([^\]]+)\]`)
 		reEvent := regexp.MustCompile(`\[EVENT:\s*([^\]]+)\]`)
-		
+		reIntensity := regexp.MustCompile(`\[INTENSITY:\s*([^\]]+)\]`)
+
 		timeMatch := reTime.FindStringSubmatch(fullBlock)
 		eventMatch := reEvent.FindStringSubmatch(fullBlock)
 
@@ -436,7 +478,13 @@ func parseAndSaveN8NSchedules(userID uuid.UUID, aiReply string) int {
 		}
 
 		timeRaw := strings.TrimSpace(timeMatch[1])
-		eventTitle := strings.TrimSpace(eventMatch[2])
+		eventTitle := strings.TrimSpace(eventMatch[1])
+
+		intensity := "MODERATE"
+		intensityMatch := reIntensity.FindStringSubmatch(fullBlock)
+		if len(intensityMatch) >= 2 {
+			intensity = strings.ToUpper(strings.TrimSpace(intensityMatch[1]))
+		}
 
 		// Extract DESC multi-line block
 		descRaw := ""
@@ -451,8 +499,8 @@ func parseAndSaveN8NSchedules(userID uuid.UUID, aiReply string) int {
 			}
 		}
 
-		workoutDate := today
-		reDate := regexp.MustCompile(`(\d{1,2})/(\d{1,2})/(\d{4})`)
+		workoutDate := today.AddDate(0, 0, idx)
+		reDate := regexp.MustCompile(`(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})`)
 		dateMatches := reDate.FindStringSubmatch(timeRaw)
 		if len(dateMatches) == 4 {
 			day, _ := strconv.Atoi(dateMatches[1])
@@ -461,11 +509,11 @@ func parseAndSaveN8NSchedules(userID uuid.UUID, aiReply string) int {
 			if year > 2500 {
 				year -= 543
 			}
-			workoutDate = time.Date(year, time.Month(month), day, 10, 0, 0, 0, time.Local)
+			workoutDate = time.Date(year, time.Month(month), day, 10, 0, 0, 0, loc)
 		}
 
-		durationMins := 60
-		reTimeRange := regexp.MustCompile(`(\d{1,2}):(\d{2})\s*ถึง\s*(\d{1,2}):(\d{2})`)
+		durationMins := 45
+		reTimeRange := regexp.MustCompile(`(\d{1,2}):(\d{2})\s*(?:ถึง|-|to)\s*(\d{1,2}):(\d{2})`)
 		timeMatches := reTimeRange.FindStringSubmatch(timeRaw)
 		if len(timeMatches) == 5 {
 			h1, _ := strconv.Atoi(timeMatches[1])
@@ -477,21 +525,22 @@ func parseAndSaveN8NSchedules(userID uuid.UUID, aiReply string) int {
 			if endMins > startMins {
 				durationMins = endMins - startMins
 			}
+			workoutDate = time.Date(workoutDate.Year(), workoutDate.Month(), workoutDate.Day(), h1, m1, 0, 0, loc)
 		}
 
 		burnedCal := 0.0
-		reCal := regexp.MustCompile(`เผาผลาญประมาณ:\s*(\d+(\.\d+)?)`)
+		reCal := regexp.MustCompile(`เผาผลาญประมาณ:\s*(\d+(?:\.\d+)?)`)
 		calMatch := reCal.FindStringSubmatch(descRaw)
 		if len(calMatch) >= 2 {
 			burnedCal, _ = strconv.ParseFloat(calMatch[1], 64)
 		}
 		if burnedCal == 0 {
-			burnedCal = float64(durationMins) * 6.0
+			burnedCal = float64(durationMins) * 6.5
 		}
 
 		// Avoid duplicate title on same date
 		var existing models.WorkoutSchedule
-		err := config.DB.Where("user_id = ? AND title = ? AND scheduled_date = ?", userID, eventTitle, workoutDate.Format("2006-01-02")).First(&existing).Error
+		err := config.DB.Where("user_id = ? AND scheduled_date = ?", userID, workoutDate.Format("2006-01-02")).First(&existing).Error
 		if err != nil {
 			schedule := models.WorkoutSchedule{
 				UserID:          userID,
@@ -499,12 +548,15 @@ func parseAndSaveN8NSchedules(userID uuid.UUID, aiReply string) int {
 				ScheduledDate:   workoutDate,
 				DurationMinutes: durationMins,
 				Status:          "PENDING",
-				TargetIntensity: "MODERATE",
+				TargetIntensity: intensity,
 				BurnedCalories:  burnedCal,
 			}
 
 			if err := config.DB.Create(&schedule).Error; err == nil {
 				createdCount++
+
+				// Create Google Calendar Workout Event if user connected Google Calendar
+				go CreateGoogleCalendarWorkoutEvent(userID, schedule.Title, schedule.ScheduledDate, schedule.DurationMinutes, schedule.BurnedCalories, descRaw)
 
 				// Extract all bulleted exercise items in descRaw (e.g. • Dumbbell Goblet Squats - ...)
 				lines := strings.Split(descRaw, "\n")
@@ -560,6 +612,71 @@ func parseAndSaveN8NSchedules(userID uuid.UUID, aiReply string) int {
 	}
 
 	return createdCount
+}
+
+func generateSmartFallbackSchedule(userID uuid.UUID, user models.User) int {
+	var exercises []models.Exercise
+	config.DB.Find(&exercises)
+
+	loc, errLoc := time.LoadLocation("Asia/Bangkok")
+	if errLoc != nil {
+		loc = time.FixedZone("ICT", 7*3600)
+	}
+	now := time.Now().In(loc)
+
+	days := []int{0, 2, 4} // Today, +2 days, +4 days
+	created := 0
+
+	title := "Fat Burn & Cardio Routine"
+	intensity := "MODERATE"
+	switch user.FitnessGoal {
+	case "GAIN_MUSCLE":
+		title = "Strength & Muscle Building Routine"
+		intensity = "INTENSE"
+	case "IMPROVE_ENDURANCE":
+		title = "Endurance & Stamina Circuit"
+		intensity = "MODERATE"
+	case "MAINTAIN_HEALTH":
+		title = "Active Daily Recovery"
+		intensity = "LIGHT"
+	}
+
+	for _, d := range days {
+		wDate := time.Date(now.Year(), now.Month(), now.Day()+d, 17, 30, 0, 0, loc)
+		var existing models.WorkoutSchedule
+		if err := config.DB.Where("user_id = ? AND scheduled_date = ?", userID, wDate.Format("2006-01-02")).First(&existing).Error; err == nil {
+			continue
+		}
+
+		durationMins := 35
+		burnedCal := float64(durationMins) * 6.5
+
+		schedule := models.WorkoutSchedule{
+			UserID:          userID,
+			Title:           title,
+			ScheduledDate:   wDate,
+			DurationMinutes: durationMins,
+			Status:          "PENDING",
+			TargetIntensity: intensity,
+			BurnedCalories:  burnedCal,
+		}
+
+		if err := config.DB.Create(&schedule).Error; err == nil {
+			created++
+			for i := 0; i < 3 && i < len(exercises); i++ {
+				detail := models.WorkoutScheduleDetail{
+					WorkoutScheduleID: schedule.ScheduleID,
+					ExerciseID:        exercises[i].ExerciseID,
+					Sets:              3,
+					Reps:              12,
+					DurationSeconds:   45,
+				}
+				config.DB.Create(&detail)
+			}
+			go CreateGoogleCalendarWorkoutEvent(userID, schedule.Title, schedule.ScheduledDate, schedule.DurationMinutes, schedule.BurnedCalories, "ตารางออกกำลังกายจัดสรรโดย youPace AI")
+		}
+	}
+	return created
 }
 
 // GenerateWeeklyHealthRecap generates an inspiring AI-powered weekly performance review

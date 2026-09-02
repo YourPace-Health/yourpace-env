@@ -1,16 +1,12 @@
-// src/presentation/pages/AuthPage.jsx
-
-import React, { useState } from 'react';
 import { useAuthViewModel } from '../hooks/useAuthViewModel';
 import { SocialLogin } from '../components/Auth/SocialLogin';
 import { LoginForm } from '../components/Auth/LoginForm';
 import { MagicLinkForm } from '../components/Auth/MagicLinkForm';
 import { ForgotPasswordForm } from '../components/Auth/ForgotPasswordForm';
-import { Bot, ShieldCheck, Mail, Sparkles, X, ArrowLeft } from 'lucide-react';
+import { Bot, ShieldCheck, X, ArrowLeft } from 'lucide-react';
 
 export function AuthPage({ onBackToHome, onAuthSuccess }) {
   const {
-    currentUser,
     isLoading,
     error,
     successMessage,
@@ -37,7 +33,7 @@ export function AuthPage({ onBackToHome, onAuthSuccess }) {
       if (onAuthSuccess) {
         onAuthSuccess(user);
       }
-    } catch (err) {
+    } catch (_err) {
       // Error handled by ViewModel state
     }
   };
@@ -48,7 +44,7 @@ export function AuthPage({ onBackToHome, onAuthSuccess }) {
       if (onAuthSuccess) {
         onAuthSuccess(user);
       }
-    } catch (err) {
+    } catch (_err) {
       // Error handled by ViewModel state
     }
   };
@@ -56,7 +52,7 @@ export function AuthPage({ onBackToHome, onAuthSuccess }) {
   const handleMagicLinkSubmit = async (email) => {
     try {
       await requestMagicLink(email);
-    } catch (err) {
+    } catch (_err) {
       // Error handled by ViewModel state
     }
   };
@@ -64,7 +60,7 @@ export function AuthPage({ onBackToHome, onAuthSuccess }) {
   const handleResetPasswordSubmit = async (email) => {
     try {
       await requestResetPassword(email);
-    } catch (err) {
+    } catch (_err) {
       // Error handled by ViewModel state
     }
   };
@@ -275,7 +271,7 @@ export function AuthPage({ onBackToHome, onAuthSuccess }) {
                   const otp = e.target.otp.value;
                   try {
                     await confirmOTP(otp);
-                  } catch (err) {
+                  } catch (_err) {
                     // Handled by VM state
                   }
                 }} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -419,7 +415,7 @@ export function AuthPage({ onBackToHome, onAuthSuccess }) {
                       const password = e.target.password.value;
                       try {
                         await registerUser(username, email, password);
-                      } catch (err) {
+                      } catch (_err) {
                         // Handled by VM state
                       }
                     }} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>

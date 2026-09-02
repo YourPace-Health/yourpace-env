@@ -1,6 +1,6 @@
 // src/presentation/components/Auth/LoginForm.jsx
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
 
 export function LoginForm({ onSubmit, isLoading, onForgotPasswordClick }) {

@@ -67,6 +67,19 @@ func main() {
 	e.Static("/uploads", "uploads")
 
 	// 6. Routes
+	// Public Auth Routes (No JWT middleware required)
+	authGroup := e.Group("/api/auth")
+	authGroup.POST("/register", handlers.Register)
+	authGroup.POST("/login", handlers.Login)
+	authGroup.POST("/verify-otp", handlers.VerifyOTP)
+	authGroup.POST("/google", handlers.GoogleLogin)
+	authGroup.POST("/request-otp", handlers.RequestOTP)
+	authGroup.POST("/magic-link", handlers.RequestMagicLink)
+	authGroup.POST("/verify-magic-link", handlers.VerifyMagicLink)
+
+	// Public Google Calendar Callback (OAuth redirect from browser - no JWT required)
+	e.GET("/api/calendar/callback", handlers.GoogleCalendarCallback)
+
 	apiGroup := e.Group("/api")
 	apiGroup.Use(middleware.JWTMiddleware)
 
@@ -92,6 +105,7 @@ func main() {
 	apiGroup.GET("/calendar/status", handlers.GetCalendarStatus)
 	apiGroup.DELETE("/calendar", handlers.DisconnectCalendar)
 	apiGroup.GET("/calendar/events", handlers.GetGoogleCalendarEvents)
+	apiGroup.DELETE("/calendar/events/workout", handlers.DeleteGoogleCalendarWorkoutEventsHandler)
 
 	// Exercises
 	apiGroup.GET("/exercises", handlers.GetAllExercises)

@@ -1,6 +1,6 @@
 // src/presentation/components/Auth/MagicLinkForm.jsx
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Mail, Sparkles } from 'lucide-react';
 
 export function MagicLinkForm({ onSubmit, isLoading }) {

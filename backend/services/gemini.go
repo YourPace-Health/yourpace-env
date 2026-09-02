@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"strings"
@@ -162,7 +163,7 @@ func CallGemini(prompt string) (string, error) {
 	urlStr := os.Getenv("GEMINI_URL")
 	if apiKey != "" && apiKey != "YOUR_GEMINI_API_KEY" {
 		if urlStr == "" {
-			urlStr = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
+			urlStr = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent"
 		}
 
 		requestURL := fmt.Sprintf("%s?key=%s", urlStr, apiKey)
@@ -180,16 +181,26 @@ func CallGemini(prompt string) (string, error) {
 		if errMarshal == nil {
 			client := &http.Client{Timeout: 30 * time.Second}
 			resp, errPost := client.Post(requestURL, "application/json", bytes.NewBuffer(jsonBytes))
-			if errPost == nil {
+			if errPost != nil {
+				log.Printf("Gemini API call failed with connection error: %v", errPost)
+			} else {
 				defer resp.Body.Close()
 				bodyBytes, errRead := io.ReadAll(resp.Body)
-				if errRead == nil && resp.StatusCode == http.StatusOK {
-					var geminiResp GeminiResponse
-					if errUnmarshal := json.Unmarshal(bodyBytes, &geminiResp); errUnmarshal == nil {
-						if len(geminiResp.Candidates) > 0 && len(geminiResp.Candidates[0].Content.Parts) > 0 {
-							return geminiResp.Candidates[0].Content.Parts[0].Text, nil
+				if errRead == nil {
+					if resp.StatusCode == http.StatusOK {
+						var geminiResp GeminiResponse
+						if errUnmarshal := json.Unmarshal(bodyBytes, &geminiResp); errUnmarshal == nil {
+							if len(geminiResp.Candidates) > 0 && len(geminiResp.Candidates[0].Content.Parts) > 0 {
+								return geminiResp.Candidates[0].Content.Parts[0].Text, nil
+							}
+						} else {
+							log.Printf("Gemini API call response unmarshal error: %v, body: %s", errUnmarshal, string(bodyBytes))
 						}
+					} else {
+						log.Printf("Gemini API call returned status %d, body: %s", resp.StatusCode, string(bodyBytes))
 					}
+				} else {
+					log.Printf("Gemini API call response read error: %v", errRead)
 				}
 			}
 		}

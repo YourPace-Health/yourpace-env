@@ -9,6 +9,10 @@ n8n_data/
 *.log
 logs
 *.log*
+coverage/
+*.out
+coverage.out
+portfolio/
 
 # Environment files and credentials
 .env

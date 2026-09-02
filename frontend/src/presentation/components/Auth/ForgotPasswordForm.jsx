@@ -1,6 +1,6 @@
 // src/presentation/components/Auth/ForgotPasswordForm.jsx
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Mail, ArrowLeft } from 'lucide-react';
 
 export function ForgotPasswordForm({ onSubmit, isLoading, onBackToLoginClick }) {

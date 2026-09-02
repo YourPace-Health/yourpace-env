@@ -1,19 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { 
-  User, 
-  ChevronRight, 
   ArrowLeft, 
   Weight, 
   Ruler, 
-  Activity, 
   Dumbbell, 
   AlertCircle, 
   Save,
   Check,
   Target,
   Flame,
-  Sparkles,
-  Calendar,
   Clock,
   Zap
 } from 'lucide-react';
@@ -150,11 +145,11 @@ export function ProfilePage({ userToken, onBackToDashboard, onProfileUpdateSucce
     setSuccessMessage(null);
 
     const payload = {
-      age: parseInt(age) || 0,
+      age: Number.parseInt(age, 10) || 0,
       gender: gender,
-      height: parseFloat(height) || 0,
-      weight: parseFloat(weight) || 0,
-      targetWeight: parseFloat(targetWeight) || 0,
+      height: Number.parseFloat(height) || 0,
+      weight: Number.parseFloat(weight) || 0,
+      targetWeight: Number.parseFloat(targetWeight) || 0,
       targetDate: targetDate || null,
       fitnessGoal: fitnessGoal,
       equipmentOwned: selectedEquipment,
@@ -488,8 +483,8 @@ export function ProfilePage({ userToken, onBackToDashboard, onProfileUpdateSucce
 
             {/* Target Weight & Timeline Real-time Summary Card */}
             {(() => {
-              const currentW = parseFloat(weight) || 0;
-              const targetW = parseFloat(targetWeight) || 0;
+              const currentW = Number.parseFloat(weight) || 0;
+              const targetW = Number.parseFloat(targetWeight) || 0;
               if (currentW <= 0 || targetW <= 0) return null;
 
               const diff = currentW - targetW;
@@ -499,7 +494,6 @@ export function ProfilePage({ userToken, onBackToDashboard, onProfileUpdateSucce
 
               // Timeline calculations
               let daysRemaining = 0;
-              let weeksRemaining = 0;
               let monthsRemaining = 0;
               let pacePerWeek = 0;
               let targetDateFormatted = '';
@@ -510,7 +504,7 @@ export function ProfilePage({ userToken, onBackToDashboard, onProfileUpdateSucce
                 const diffMs = targetObj.getTime() - now.getTime();
                 if (diffMs > 0) {
                   daysRemaining = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-                  weeksRemaining = daysRemaining / 7;
+                  const weeksRemaining = daysRemaining / 7;
                   monthsRemaining = daysRemaining / 30.4;
                   if (weeksRemaining > 0) {
                     pacePerWeek = Math.abs(diff) / weeksRemaining;
@@ -629,7 +623,8 @@ export function ProfilePage({ userToken, onBackToDashboard, onProfileUpdateSucce
               {goalOptions.map(goal => {
                 const isSelected = fitnessGoal === goal.id;
                 return (
-                  <div
+                  <button
+                    type="button"
                     key={goal.id}
                     onClick={() => setFitnessGoal(goal.id)}
                     style={{
@@ -640,7 +635,9 @@ export function ProfilePage({ userToken, onBackToDashboard, onProfileUpdateSucce
                       cursor: 'pointer',
                       display: 'flex',
                       gap: '16px',
-                      transition: 'var(--transition)'
+                      transition: 'var(--transition)',
+                      textAlign: 'left',
+                      width: '100%'
                     }}
                   >
                     <span style={{ fontSize: '28px', display: 'flex', alignItems: 'center' }}>{goal.icon}</span>
@@ -657,7 +654,7 @@ export function ProfilePage({ userToken, onBackToDashboard, onProfileUpdateSucce
                         {goal.desc}
                       </p>
                     </div>
-                  </div>
+                  </button>
                 );
               })}
             </div>
@@ -682,7 +679,8 @@ export function ProfilePage({ userToken, onBackToDashboard, onProfileUpdateSucce
               {equipmentOptions.map(eq => {
                 const isSelected = selectedEquipment.includes(eq.name);
                 return (
-                  <div
+                  <button
+                    type="button"
                     key={eq.equipmentId}
                     onClick={() => handleEquipmentToggle(eq.name)}
                     style={{
@@ -703,7 +701,7 @@ export function ProfilePage({ userToken, onBackToDashboard, onProfileUpdateSucce
                     <span>{eq.icon}</span>
                     <span>{eq.displayName || eq.name}</span>
                     {isSelected && <Check size={14} style={{ marginLeft: '4px' }} />}
-                  </div>
+                  </button>
                 );
               })}
             </div>
@@ -728,7 +726,8 @@ export function ProfilePage({ userToken, onBackToDashboard, onProfileUpdateSucce
               {limitationOptions.map(lim => {
                 const isSelected = selectedLimitations.includes(lim.id);
                 return (
-                  <div
+                  <button
+                    type="button"
                     key={lim.id}
                     onClick={() => handleLimitationToggle(lim.id)}
                     style={{
@@ -741,7 +740,8 @@ export function ProfilePage({ userToken, onBackToDashboard, onProfileUpdateSucce
                       flexDirection: 'column',
                       gap: '4px',
                       transition: 'var(--transition)',
-                      textAlign: 'left'
+                      textAlign: 'left',
+                      width: '100%'
                     }}
                   >
                     <span style={{ 
@@ -754,7 +754,7 @@ export function ProfilePage({ userToken, onBackToDashboard, onProfileUpdateSucce
                     <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
                       {lim.desc}
                     </span>
-                  </div>
+                  </button>
                 );
               })}
             </div>
@@ -794,7 +794,7 @@ export function ProfilePage({ userToken, onBackToDashboard, onProfileUpdateSucce
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '16px' }}>
                   {selectedLimitations.map((lim, idx) => (
                     <span 
-                      key={idx}
+                      key={`lim-badge-${lim || idx}`}
                       style={{
                         background: '#fee2e2',
                         color: '#991b1b',

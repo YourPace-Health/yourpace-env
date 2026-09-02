@@ -46,6 +46,14 @@ export class AuthRepositoryImpl extends AuthRepository {
     return await this.authApiDataSource.requestMagicLink(email);
   }
 
+  async verifyMagicLink(token) {
+    const session = await this.authApiDataSource.verifyMagicLink(token);
+    return {
+      user: this._mapToUserEntity(session.user),
+      token: session.token
+    };
+  }
+
   async resetPassword(email) {
     return await this.authApiDataSource.resetPassword(email);
   }
