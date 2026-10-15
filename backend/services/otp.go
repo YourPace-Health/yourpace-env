@@ -52,14 +52,10 @@ func SendOTP(email string) error {
 	smtpHost := "smtp.gmail.com"
 	smtpPort := "587"
 	
-	// Default credentials matching java application.properties
 	username := os.Getenv("MAIL_USERNAME")
-	if username == "" {
-		username = "cp25ms2.financecare@gmail.com"
-	}
 	password := os.Getenv("MAIL_PASSWORD")
-	if password == "" {
-		password = "srbpwovznhlktcqt"
+	if username == "" || password == "" {
+		return fmt.Errorf("MAIL_USERNAME and MAIL_PASSWORD must be set when mail is enabled")
 	}
 
 	auth := smtp.PlainAuth("", username, password, smtpHost)
@@ -120,12 +116,9 @@ func SendMagicLink(email string, token string) error {
 	smtpPort := "587"
 
 	username := os.Getenv("MAIL_USERNAME")
-	if username == "" {
-		username = "cp25ms2.financecare@gmail.com"
-	}
 	password := os.Getenv("MAIL_PASSWORD")
-	if password == "" {
-		password = "srbpwovznhlktcqt"
+	if username == "" || password == "" {
+		return fmt.Errorf("MAIL_USERNAME and MAIL_PASSWORD must be set when mail is enabled")
 	}
 
 	auth := smtp.PlainAuth("", username, password, smtpHost)

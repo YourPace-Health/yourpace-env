@@ -14,7 +14,7 @@ func getJwtSecret() []byte {
 	if len(jwtSecret) == 0 {
 		secret := os.Getenv("JWT_SECRET")
 		if secret == "" {
-			secret = "your_default_jwt_secret_key_change_in_production"
+			panic("JWT_SECRET environment variable is required")
 		}
 		jwtSecret = []byte(secret)
 	}
