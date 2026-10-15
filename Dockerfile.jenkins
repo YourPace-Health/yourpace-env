@@ -20,6 +20,10 @@ RUN apt-get update && \
     # Install Node.js for Javascript analysis
     curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
     apt-get install -y nodejs && \
-    apt-get clean
+    apt-get clean && \
+    # Install Go toolchain (version matches backend/go.mod) for gofmt, go vet and go test
+    curl -fsSL https://go.dev/dl/go1.26.3.linux-amd64.tar.gz | tar -C /usr/local -xz
+
+ENV PATH="/usr/local/go/bin:${PATH}"
 
 USER jenkins
