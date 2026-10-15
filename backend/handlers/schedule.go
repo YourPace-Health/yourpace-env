@@ -97,7 +97,7 @@ func GenerateWeeklySchedule(c echo.Context) error {
 	suggested := []models.Exercise{}
 	for _, ex := range exercises {
 		exEquipLower := strings.ToLower(ex.EquipmentNeeded)
-		
+
 		// 1. Check Equipment: Exercise must match user's owned equipment
 		hasEquipment := false
 		for _, eq := range userEquips {
@@ -139,7 +139,7 @@ func GenerateWeeklySchedule(c echo.Context) error {
 				}
 			}
 		}
-		
+
 		if !isSafe {
 			continue // Skip unsafe exercise
 		}
@@ -160,7 +160,7 @@ func GenerateWeeklySchedule(c echo.Context) error {
 
 	for _, offset := range daysToGenerate {
 		workoutDate := today.AddDate(0, 0, offset)
-		
+
 		// Check if schedule already exists on this date
 		var existing models.WorkoutSchedule
 		err := config.DB.Where("user_id = ? AND scheduled_date = ?", userID, workoutDate.Format("2006-01-02")).First(&existing).Error
@@ -171,7 +171,7 @@ func GenerateWeeklySchedule(c echo.Context) error {
 		// Customize title based on fitness goals
 		title := "General Fitness Routine"
 		intensity := "MODERATE"
-		
+
 		switch user.FitnessGoal {
 		case "LOSE_WEIGHT":
 			title = "Fat Burn & Cardio Session"
@@ -438,7 +438,6 @@ func LogCustomBurnWorkout(c echo.Context) error {
 	return c.JSON(http.StatusCreated, schedule)
 }
 
-
 func Reschedule(c echo.Context) error {
 	userID, err := ExtractUserID(c)
 	if err != nil {
@@ -447,7 +446,7 @@ func Reschedule(c echo.Context) error {
 
 	// 1. Find all PENDING or MISSED workouts on or before today
 	todayStr := time.Now().Format("2006-01-02")
-	
+
 	var pastWorkouts []models.WorkoutSchedule
 	err = config.DB.Where("user_id = ? AND status IN ('PENDING', 'MISSED') AND scheduled_date <= ?", userID, todayStr).Find(&pastWorkouts).Error
 	if err != nil {
@@ -466,7 +465,7 @@ func Reschedule(c echo.Context) error {
 		foundEmptyDate := false
 		for !foundEmptyDate {
 			dateStr := nextDate.Format("2006-01-02")
-			
+
 			var duplicate models.WorkoutSchedule
 			err := config.DB.Where("user_id = ? AND scheduled_date = ?", userID, dateStr).First(&duplicate).Error
 			if err != nil {
@@ -482,7 +481,7 @@ func Reschedule(c echo.Context) error {
 		pastWorkouts[i].ScheduledDate = nextDate
 		pastWorkouts[i].Status = "RESCHEDULED"
 		config.DB.Save(&pastWorkouts[i])
-		
+
 		rescheduledCount++
 		nextDate = nextDate.AddDate(0, 0, 1) // Increment for next rescheduling
 	}

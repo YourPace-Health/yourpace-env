@@ -144,12 +144,11 @@ func ClearChatHistory(c echo.Context) error {
 	})
 }
 
-
 type CalculateBurnRequest struct {
-	Title           string  `json:"title"`
-	DurationMinutes int     `json:"durationMinutes"`
-	Intensity       string  `json:"intensity"`
-	Description     string  `json:"description"`
+	Title           string `json:"title"`
+	DurationMinutes int    `json:"durationMinutes"`
+	Intensity       string `json:"intensity"`
+	Description     string `json:"description"`
 }
 
 type IntensityBurnDetail struct {
@@ -740,15 +739,15 @@ func GenerateWeeklyHealthRecap(c echo.Context) error {
 		user.Username, user.FitnessGoal, thisWeekCount, thisWeekCalories, thisWeekMins, lastWeekCount, lastWeekCalories, user.Weight, user.TargetWeight)
 
 	n8nReq := map[string]interface{}{
-		"userId":          userID.String(),
-		"action":          "weekly_recap",
-		"message":         prompt,
-		"prompt":          prompt,
-		"thisWeekCount":   thisWeekCount,
-		"thisWeekCal":     thisWeekCalories,
-		"thisWeekMins":    thisWeekMins,
-		"lastWeekCal":     lastWeekCalories,
-		"user":            user,
+		"userId":        userID.String(),
+		"action":        "weekly_recap",
+		"message":       prompt,
+		"prompt":        prompt,
+		"thisWeekCount": thisWeekCount,
+		"thisWeekCal":   thisWeekCalories,
+		"thisWeekMins":  thisWeekMins,
+		"lastWeekCal":   lastWeekCalories,
+		"user":          user,
 	}
 
 	var aiRecapText string
@@ -789,10 +788,10 @@ youPace และ AI Mentor พร้อมเคียงข้างคุณ�
 	}
 
 	return c.JSON(http.StatusOK, map[string]interface{}{
-		"weeklyRecap":       aiRecapText,
-		"thisWeekCount":     thisWeekCount,
-		"thisWeekCalories":  thisWeekCalories,
-		"thisWeekMins":      thisWeekMins,
-		"lastWeekCalories":  lastWeekCalories,
+		"weeklyRecap":      aiRecapText,
+		"thisWeekCount":    thisWeekCount,
+		"thisWeekCalories": thisWeekCalories,
+		"thisWeekMins":     thisWeekMins,
+		"lastWeekCalories": lastWeekCalories,
 	})
 }

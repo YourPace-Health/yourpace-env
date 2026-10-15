@@ -30,7 +30,7 @@ func GenerateOTP() string {
 
 func SendOTP(email string) error {
 	otp := GenerateOTP()
-	
+
 	// Save to Redis (valid for 5 minutes)
 	if config.RedisClient != nil {
 		err := config.RedisClient.Set(ctx, "otp:"+email, otp, 5*time.Minute).Err()
@@ -51,7 +51,7 @@ func SendOTP(email string) error {
 	// Simple SMTP Email Sender (Gmail)
 	smtpHost := "smtp.gmail.com"
 	smtpPort := "587"
-	
+
 	username := os.Getenv("MAIL_USERNAME")
 	password := os.Getenv("MAIL_PASSWORD")
 	if username == "" || password == "" {

@@ -210,7 +210,6 @@ func CallGemini(prompt string) (string, error) {
 	return "", fmt.Errorf("ไม่สามารถเชื่อมต่อกับ n8n ได้ (%v) กรุณาตรวจสอบว่าเปิดสวิตช์ Active Workflow ใน n8n แล้ว", err)
 }
 
-
 type MealNutritionAnalysis struct {
 	Calories    float64 `json:"calories"`
 	Protein     float64 `json:"protein"`
@@ -519,4 +518,3 @@ func GenerateDailyNutritionFeedback(nutritionSummary string, userGoal string, ca
 
 	return &feedback, nil
 }
-
