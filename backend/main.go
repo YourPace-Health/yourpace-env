@@ -129,7 +129,6 @@ func main() {
 	apiGroup.DELETE("/schedules", handlers.DeleteAllSchedules)
 	apiGroup.DELETE("/schedules/:id", handlers.DeleteSchedule)
 
-
 	// Meals & AI Nutrition Tracker
 	apiGroup.POST("/meals/log", handlers.LogMeal)
 	apiGroup.POST("/meals/preview", handlers.AnalyzeMealPreview)
@@ -152,7 +151,6 @@ func main() {
 	apiGroup.POST("/mentor/calculate-burn", handlers.CalculateBurnWithN8N)
 	apiGroup.GET("/mentor/weekly-recap", handlers.GenerateWeeklyHealthRecap)
 
-
 	// Health Progress & Weight Tracking
 	apiGroup.POST("/health/weight", handlers.LogWeight)
 	apiGroup.GET("/health/weight/history", handlers.GetWeightHistory)
@@ -169,8 +167,6 @@ func main() {
 	log.Printf("Starting youPace server on port %s...", port)
 	e.Logger.Fatal(e.Start(":" + port))
 }
-
-
 
 func seedDefaultEquipments() {
 	log.Println("Seeding default equipment data into database...")

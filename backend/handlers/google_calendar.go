@@ -576,4 +576,3 @@ func DeleteGoogleCalendarWorkoutEventsHandler(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, map[string]string{"message": "workout calendar events deleted successfully"})
 }
-

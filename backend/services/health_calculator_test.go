@@ -9,12 +9,12 @@ import (
 
 func TestCalculateBMI(t *testing.T) {
 	tests := []struct {
-		name         string
-		heightCm     float64
-		weightKg     float64
-		expectedBMI  float64
-		expectedCat  string
-		expectedTh   string
+		name        string
+		heightCm    float64
+		weightKg    float64
+		expectedBMI float64
+		expectedCat string
+		expectedTh  string
 	}{
 		{"Invalid input zero height", 0, 70, 0, "UNKNOWN", "ไม่ระบุ"},
 		{"Invalid input negative weight", 175, -10, 0, "UNKNOWN", "ไม่ระบุ"},

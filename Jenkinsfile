@@ -19,18 +19,16 @@ pipeline {
                 stage('Backend Quality') {
                     steps {
                         dir('backend') {
-                            echo 'Verifying Go code formatting and static analysis...'
-                            // go vet ./...
-                            echo 'Backend Go vet and static analysis passed'
+                            sh 'test -z "$(gofmt -l .)" || { gofmt -l .; echo "Files above are not gofmt-formatted"; exit 1; }'
+                            sh 'go vet ./...'
                         }
                     }
                 }
                 stage('Frontend Quality') {
                     steps {
                         dir('frontend') {
-                            echo 'Running Frontend ESLint check...'
-                            // npm run lint
-                            echo 'Frontend ESLint check passed'
+                            sh 'npm ci --no-audit --no-fund'
+                            sh 'npm run lint'
                         }
                     }
                 }
@@ -38,21 +36,22 @@ pipeline {
         }
 
         stage('Backend Tests') {
+            environment {
+                // Throwaway value for tests only; production secrets never come from here.
+                JWT_SECRET = 'ci-test-only-secret'
+            }
             steps {
                 dir('backend') {
-                    echo 'Running backend unit tests...'
-                    // go test ./... -v
-                    echo 'Backend tests completed successfully'
+                    sh 'go test ./... -cover'
                 }
             }
         }
 
-        stage('Frontend Tests') {
+        // The frontend has no test script yet, so the build is the check.
+        stage('Frontend Build') {
             steps {
                 dir('frontend') {
-                    echo 'Running frontend tests...'
-                    // npm test --if-present
-                    echo 'Frontend tests completed successfully'
+                    sh 'npm run build'
                 }
             }
         }
@@ -74,7 +73,7 @@ pipeline {
 
     post {
         success {
-            echo 'CI/CD pipeline completed successfully with high code quality standards!'
+            echo 'Pipeline completed successfully.'
         }
         failure {
             echo 'Pipeline failed. Please check the logs.'

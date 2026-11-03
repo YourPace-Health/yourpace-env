@@ -16,7 +16,7 @@ import (
 )
 
 type MealLogRequest struct {
-	MealType        string   `json:"mealType"`        // BREAKFAST, LUNCH, DINNER, SNACK
+	MealType        string   `json:"mealType"` // BREAKFAST, LUNCH, DINNER, SNACK
 	MealDescription string   `json:"mealDescription" validate:"required"`
 	Calories        *float64 `json:"calories"`
 	Protein         *float64 `json:"protein"`
@@ -112,9 +112,15 @@ func LogMeal(c echo.Context) error {
 	// If calories were provided from client preview, use them; otherwise analyze now with AI
 	if req.Calories != nil && *req.Calories > 0 {
 		cal = *req.Calories
-		if req.Protein != nil { pro = *req.Protein }
-		if req.Carbs != nil { carb = *req.Carbs }
-		if req.Fat != nil { fat = *req.Fat }
+		if req.Protein != nil {
+			pro = *req.Protein
+		}
+		if req.Carbs != nil {
+			carb = *req.Carbs
+		}
+		if req.Fat != nil {
+			fat = *req.Fat
+		}
 		summaryText = "บันทึกข้อมูลโภชนาการเรียบร้อยแล้ว"
 	} else {
 		analysis, err := services.AnalyzeMealStructured(req.MealDescription, goal)
@@ -237,7 +243,7 @@ func DeleteMeal(c echo.Context) error {
 
 type MealPhotoAnalysisRequest struct {
 	ImageData string `json:"imageData" validate:"required"` // Base64 encoded image string
-	MimeType  string `json:"mimeType"`                     // e.g. "image/jpeg", "image/png"
+	MimeType  string `json:"mimeType"`                      // e.g. "image/jpeg", "image/png"
 }
 
 func AnalyzeMealPhotoPreview(c echo.Context) error {
@@ -280,14 +286,14 @@ func AnalyzeMealPhotoPreview(c echo.Context) error {
 }
 
 type EnergyBalanceSummary struct {
-	Date                string  `json:"date"`
-	CaloriesIn          float64 `json:"caloriesIn"`          // Total calories consumed today
-	CaloriesBurned      float64 `json:"caloriesBurned"`      // Exercise & workout burned
-	NetCalories         float64 `json:"netCalories"`         // CaloriesIn - CaloriesBurned
-	TargetCalories      int     `json:"targetCalories"`      // Budget for the day
-	DeficitToday        float64 `json:"deficitToday"`        // How much deficit achieved vs TDEE
-	TDEE                float64 `json:"tdee"`
-	StatusMessage       string  `json:"statusMessage"`       // "อยู่ในเป้าหมาย Deficit", "แคลอรี่เกินเล็กน้อย"
+	Date           string  `json:"date"`
+	CaloriesIn     float64 `json:"caloriesIn"`     // Total calories consumed today
+	CaloriesBurned float64 `json:"caloriesBurned"` // Exercise & workout burned
+	NetCalories    float64 `json:"netCalories"`    // CaloriesIn - CaloriesBurned
+	TargetCalories int     `json:"targetCalories"` // Budget for the day
+	DeficitToday   float64 `json:"deficitToday"`   // How much deficit achieved vs TDEE
+	TDEE           float64 `json:"tdee"`
+	StatusMessage  string  `json:"statusMessage"` // "อยู่ในเป้าหมาย Deficit", "แคลอรี่เกินเล็กน้อย"
 }
 
 func GetEnergyBalanceSummary(c echo.Context) error {
@@ -385,7 +391,7 @@ type WeeklyNutritionAnalytics struct {
 		CarbsPct   float64 `json:"carbsPct"`
 		FatPct     float64 `json:"fatPct"`
 	} `json:"macroDistribution"`
-	WeeklyDeficitTotal     float64 `json:"weeklyDeficitTotal"`
+	WeeklyDeficitTotal    float64 `json:"weeklyDeficitTotal"`
 	ProjectedWeightLossKg float64 `json:"projectedWeightLossKg"`
 }
 
@@ -556,4 +562,3 @@ func GetDailyNutritionCoachFeedback(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, feedback)
 }
-

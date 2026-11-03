@@ -13,16 +13,16 @@ import (
 )
 
 type DailyStat struct {
-	DayName         string  `json:"dayName"`         // "จ.", "อ.", "พ.", "พฤ.", "ศ.", "ส.", "อา."
-	DateStr         string  `json:"dateStr"`         // "2026-08-14"
+	DayName         string  `json:"dayName"` // "จ.", "อ.", "พ.", "พฤ.", "ศ.", "ส.", "อา."
+	DateStr         string  `json:"dateStr"` // "2026-08-14"
 	CaloriesBurned  float64 `json:"caloriesBurned"`
 	DurationMinutes int     `json:"durationMinutes"`
 	WorkoutCount    int     `json:"workoutCount"`
 }
 
 type LevelProgressInfo struct {
-	LevelCode          string  `json:"levelCode"`          // "R1", "R2", "R3", "R4", "R5"
-	LevelTitle         string  `json:"levelTitle"`         // "Beginner Starter", "Active Mover", "Committed Athlete", "Pace Champion", "Elite Legend"
+	LevelCode          string  `json:"levelCode"`  // "R1", "R2", "R3", "R4", "R5"
+	LevelTitle         string  `json:"levelTitle"` // "Beginner Starter", "Active Mover", "Committed Athlete", "Pace Champion", "Elite Legend"
 	CurrentEXP         int     `json:"currentExp"`
 	NextLevelEXP       int     `json:"nextLevelExp"`
 	ProgressPercentage float64 `json:"progressPercentage"`
@@ -35,7 +35,7 @@ type WeightProgressSummary struct {
 	TargetDate        *time.Time `json:"targetDate"`
 	DaysRemaining     int        `json:"daysRemaining"`
 	PaceKgPerWeek     float64    `json:"paceKgPerWeek"`
-	WeightChange      float64    `json:"weightChange"`       // Current - Start (Negative means lost weight)
+	WeightChange      float64    `json:"weightChange"`      // Current - Start (Negative means lost weight)
 	RemainingToTarget float64    `json:"remainingToTarget"` // Math.abs(Current - Target)
 	BMI               float64    `json:"bmi"`
 	BMICategory       string     `json:"bmiCategory"`
@@ -49,17 +49,17 @@ type HeatmapDay struct {
 }
 
 type ProgressAnalyticsResponse struct {
-	WeeklyStats             []DailyStat           `json:"weeklyStats"`
-	ThisWeekCalories        float64               `json:"thisWeekCalories"`
-	LastWeekCalories        float64               `json:"lastWeekCalories"`
-	ThisWeekDurationMins    int                   `json:"thisWeekDurationMins"`
-	CurrentStreakDays       int                   `json:"currentStreakDays"`
-	BestStreakDays          int                   `json:"bestStreakDays"`
-	TotalWorkoutsCompleted  int64                 `json:"totalWorkoutsCompleted"`
-	TotalCaloriesAllTime    float64               `json:"totalCaloriesAllTime"`
-	LevelInfo               LevelProgressInfo     `json:"levelInfo"`
-	WeightProgress          WeightProgressSummary `json:"weightProgress"`
-	ActivityHeatmap         []HeatmapDay          `json:"activityHeatmap"` // 30-day activity map
+	WeeklyStats            []DailyStat           `json:"weeklyStats"`
+	ThisWeekCalories       float64               `json:"thisWeekCalories"`
+	LastWeekCalories       float64               `json:"lastWeekCalories"`
+	ThisWeekDurationMins   int                   `json:"thisWeekDurationMins"`
+	CurrentStreakDays      int                   `json:"currentStreakDays"`
+	BestStreakDays         int                   `json:"bestStreakDays"`
+	TotalWorkoutsCompleted int64                 `json:"totalWorkoutsCompleted"`
+	TotalCaloriesAllTime   float64               `json:"totalCaloriesAllTime"`
+	LevelInfo              LevelProgressInfo     `json:"levelInfo"`
+	WeightProgress         WeightProgressSummary `json:"weightProgress"`
+	ActivityHeatmap        []HeatmapDay          `json:"activityHeatmap"` // 30-day activity map
 }
 
 // GetProgressAnalytics calculates full progress & motivation metrics
