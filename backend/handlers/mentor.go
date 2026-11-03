@@ -6,8 +6,6 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"regexp"
-	"strconv"
 	"strings"
 	"time"
 
@@ -236,112 +234,17 @@ func CalculateBurnWithN8N(c echo.Context) error {
   "explanation": "<คำอธิบายสั้นๆ 1-2 ประโยคเป็นภาษาไทย เช่น คิดจากค่า METs ประมาณ 4.0-8.5 ตามระดับความเข้มข้น สำหรับน้ำหนัก %.1f กก. ในเวลา %d นาที>"
 }`, req.Title, req.DurationMinutes, req.Description, userGender, userAge, userWeight, userHeight, user.FitnessGoal, userWeight, req.DurationMinutes)
 
-	aiReply, err := services.CallGemini(prompt)
-
-	var lightCal, moderateCal, intenseCal float64
-	var lightDesc, moderateDesc, intenseDesc, explanation string
-
-	if err == nil && aiReply != "" {
-		// Clean JSON format
-		cleanReply := strings.TrimSpace(aiReply)
-		if strings.Contains(cleanReply, "```json") {
-			cleanReply = strings.Split(cleanReply, "```json")[1]
-			cleanReply = strings.Split(cleanReply, "```")[0]
-			cleanReply = strings.TrimSpace(cleanReply)
-		} else if strings.Contains(cleanReply, "```") {
-			cleanReply = strings.Split(cleanReply, "```")[1]
-			cleanReply = strings.Split(cleanReply, "```")[0]
-			cleanReply = strings.TrimSpace(cleanReply)
-		}
-
-		var parsedResp struct {
-			Light struct {
-				Calories    interface{} `json:"calories"`
-				Description string      `json:"description"`
-			} `json:"light"`
-			Moderate struct {
-				Calories    interface{} `json:"calories"`
-				Description string      `json:"description"`
-			} `json:"moderate"`
-			Intense struct {
-				Calories    interface{} `json:"calories"`
-				Description string      `json:"description"`
-			} `json:"intense"`
-			BurnedCalories interface{} `json:"burnedCalories"` // in case single cal returned
-			Explanation    string      `json:"explanation"`
-		}
-
-		if err := json.Unmarshal([]byte(cleanReply), &parsedResp); err == nil {
-			parseFloat := func(v interface{}) float64 {
-				switch val := v.(type) {
-				case float64:
-					return val
-				case string:
-					if f, e := strconv.ParseFloat(val, 64); e == nil {
-						return f
-					}
-				}
-				return 0
-			}
-
-			lightCal = parseFloat(parsedResp.Light.Calories)
-			lightDesc = parsedResp.Light.Description
-			moderateCal = parseFloat(parsedResp.Moderate.Calories)
-			moderateDesc = parsedResp.Moderate.Description
-			intenseCal = parseFloat(parsedResp.Intense.Calories)
-			intenseDesc = parsedResp.Intense.Description
-			explanation = parsedResp.Explanation
-
-			// If only single burnedCalories returned
-			if moderateCal <= 0 && parsedResp.BurnedCalories != nil {
-				baseCal := parseFloat(parsedResp.BurnedCalories)
-				if baseCal > 0 {
-					moderateCal = baseCal
-					lightCal = baseCal * 0.8
-					intenseCal = baseCal * 1.3
-				}
-			}
-		}
+	var est services.BurnEstimate
+	if aiReply, err := services.CallGemini(prompt); err == nil && aiReply != "" {
+		est = services.ParseBurnReply(aiReply)
 	}
-
-	// Fallbacks if any level is 0
-	if lightCal <= 0 {
-		lightCal = (3.5 * 3.5 * userWeight / 200.0) * float64(req.DurationMinutes)
-	}
-	if moderateCal <= 0 {
-		moderateCal = (6.0 * 3.5 * userWeight / 200.0) * float64(req.DurationMinutes)
-	}
-	if intenseCal <= 0 {
-		intenseCal = (8.5 * 3.5 * userWeight / 200.0) * float64(req.DurationMinutes)
-	}
-
-	if lightDesc == "" {
-		lightDesc = "สบายๆ พูดคุยได้ต่อเนื่อง"
-	}
-	if moderateDesc == "" {
-		moderateDesc = "เหงื่อซึม หายใจเร็วขึ้น"
-	}
-	if intenseDesc == "" {
-		intenseDesc = "เหนื่อยหอบ ท้าทาย"
-	}
-	if explanation == "" {
-		explanation = fmt.Sprintf("คำนวณตามมาตรฐาน METs สำหรับน้ำหนัก %.1f กก. ระยะเวลา %d นาที", userWeight, req.DurationMinutes)
-	}
+	est = services.FillBurnDefaults(est, userWeight, req.DurationMinutes)
 
 	return c.JSON(http.StatusOK, CalculateBurnMultiIntensityResponse{
-		Light: IntensityBurnDetail{
-			Calories:    lightCal,
-			Description: lightDesc,
-		},
-		Moderate: IntensityBurnDetail{
-			Calories:    moderateCal,
-			Description: moderateDesc,
-		},
-		Intense: IntensityBurnDetail{
-			Calories:    intenseCal,
-			Description: intenseDesc,
-		},
-		Explanation: explanation,
+		Light:       IntensityBurnDetail{Calories: est.Light.Calories, Description: est.Light.Description},
+		Moderate:    IntensityBurnDetail{Calories: est.Moderate.Calories, Description: est.Moderate.Description},
+		Intense:     IntensityBurnDetail{Calories: est.Intense.Calories, Description: est.Intense.Description},
+		Explanation: est.Explanation,
 	})
 }
 
@@ -451,167 +354,64 @@ func PlanWorkoutInFreeTimeWithN8N(c echo.Context) error {
 }
 
 func parseAndSaveN8NSchedules(userID uuid.UUID, aiReply string) int {
-	timeBlocks := strings.Split(aiReply, "[TIME:")
-	if len(timeBlocks) <= 1 {
-		return 0
-	}
-
 	loc, errLoc := time.LoadLocation("Asia/Bangkok")
 	if errLoc != nil {
 		loc = time.FixedZone("ICT", 7*3600)
 	}
-	today := time.Now().In(loc)
+
 	createdCount := 0
-
-	for idx, block := range timeBlocks[1:] {
-		fullBlock := "[TIME:" + block
-
-		reTime := regexp.MustCompile(`\[TIME:\s*([^\]]+)\]`)
-		reEvent := regexp.MustCompile(`\[EVENT:\s*([^\]]+)\]`)
-		reIntensity := regexp.MustCompile(`\[INTENSITY:\s*([^\]]+)\]`)
-
-		timeMatch := reTime.FindStringSubmatch(fullBlock)
-		eventMatch := reEvent.FindStringSubmatch(fullBlock)
-
-		if len(timeMatch) < 2 || len(eventMatch) < 2 {
+	for _, w := range services.ParsePlannedWorkouts(aiReply, time.Now().In(loc), loc) {
+		// Skip if the user already has a workout on that date
+		var existing models.WorkoutSchedule
+		if err := config.DB.Where("user_id = ? AND scheduled_date = ?", userID, w.Date.Format("2006-01-02")).First(&existing).Error; err == nil {
 			continue
 		}
 
-		timeRaw := strings.TrimSpace(timeMatch[1])
-		eventTitle := strings.TrimSpace(eventMatch[1])
-
-		intensity := "MODERATE"
-		intensityMatch := reIntensity.FindStringSubmatch(fullBlock)
-		if len(intensityMatch) >= 2 {
-			intensity = strings.ToUpper(strings.TrimSpace(intensityMatch[1]))
+		schedule := models.WorkoutSchedule{
+			UserID:          userID,
+			Title:           w.Title,
+			ScheduledDate:   w.Date,
+			DurationMinutes: w.DurationMinutes,
+			Status:          "PENDING",
+			TargetIntensity: w.Intensity,
+			BurnedCalories:  w.BurnedCalories,
 		}
-
-		// Extract DESC multi-line block
-		descRaw := ""
-		descIdx := strings.Index(fullBlock, "[DESC:")
-		if descIdx != -1 {
-			descRaw = strings.TrimSpace(fullBlock[descIdx+6:])
-			nextTagIdx := strings.Index(descRaw, "][TIME:")
-			if nextTagIdx != -1 {
-				descRaw = strings.TrimSpace(descRaw[:nextTagIdx])
-			} else if strings.HasSuffix(descRaw, "]") {
-				descRaw = strings.TrimSpace(descRaw[:len(descRaw)-1])
-			}
+		if err := config.DB.Create(&schedule).Error; err != nil {
+			continue
 		}
+		createdCount++
 
-		workoutDate := today.AddDate(0, 0, idx)
-		reDate := regexp.MustCompile(`(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})`)
-		dateMatches := reDate.FindStringSubmatch(timeRaw)
-		if len(dateMatches) == 4 {
-			day, _ := strconv.Atoi(dateMatches[1])
-			month, _ := strconv.Atoi(dateMatches[2])
-			year, _ := strconv.Atoi(dateMatches[3])
-			if year > 2500 {
-				year -= 543
-			}
-			workoutDate = time.Date(year, time.Month(month), day, 10, 0, 0, 0, loc)
-		}
+		// Create Google Calendar Workout Event if user connected Google Calendar
+		go CreateGoogleCalendarWorkoutEvent(userID, schedule.Title, schedule.ScheduledDate, schedule.DurationMinutes, schedule.BurnedCalories, w.Description)
 
-		durationMins := 45
-		reTimeRange := regexp.MustCompile(`(\d{1,2}):(\d{2})\s*(?:ถึง|-|to)\s*(\d{1,2}):(\d{2})`)
-		timeMatches := reTimeRange.FindStringSubmatch(timeRaw)
-		if len(timeMatches) == 5 {
-			h1, _ := strconv.Atoi(timeMatches[1])
-			m1, _ := strconv.Atoi(timeMatches[2])
-			h2, _ := strconv.Atoi(timeMatches[3])
-			m2, _ := strconv.Atoi(timeMatches[4])
-			startMins := h1*60 + m1
-			endMins := h2*60 + m2
-			if endMins > startMins {
-				durationMins = endMins - startMins
-			}
-			workoutDate = time.Date(workoutDate.Year(), workoutDate.Month(), workoutDate.Day(), h1, m1, 0, 0, loc)
-		}
-
-		burnedCal := 0.0
-		reCal := regexp.MustCompile(`เผาผลาญประมาณ:\s*(\d+(?:\.\d+)?)`)
-		calMatch := reCal.FindStringSubmatch(descRaw)
-		if len(calMatch) >= 2 {
-			burnedCal, _ = strconv.ParseFloat(calMatch[1], 64)
-		}
-		if burnedCal == 0 {
-			burnedCal = float64(durationMins) * 6.5
-		}
-
-		// Avoid duplicate title on same date
-		var existing models.WorkoutSchedule
-		err := config.DB.Where("user_id = ? AND scheduled_date = ?", userID, workoutDate.Format("2006-01-02")).First(&existing).Error
-		if err != nil {
-			schedule := models.WorkoutSchedule{
-				UserID:          userID,
-				Title:           eventTitle,
-				ScheduledDate:   workoutDate,
-				DurationMinutes: durationMins,
-				Status:          "PENDING",
-				TargetIntensity: intensity,
-				BurnedCalories:  burnedCal,
-			}
-
-			if err := config.DB.Create(&schedule).Error; err == nil {
-				createdCount++
-
-				// Create Google Calendar Workout Event if user connected Google Calendar
-				go CreateGoogleCalendarWorkoutEvent(userID, schedule.Title, schedule.ScheduledDate, schedule.DurationMinutes, schedule.BurnedCalories, descRaw)
-
-				// Extract all bulleted exercise items in descRaw (e.g. • Dumbbell Goblet Squats - ...)
-				lines := strings.Split(descRaw, "\n")
-				for _, line := range lines {
-					line = strings.TrimSpace(line)
-					if line == "" || (!strings.HasPrefix(line, "•") && !strings.HasPrefix(line, "-") && !strings.HasPrefix(line, "*")) {
-						continue
-					}
-					lineClean := strings.TrimLeft(line, "•-* \t")
-
-					if strings.HasPrefix(lineClean, "ประโยชน์") ||
-						strings.HasPrefix(lineClean, "เผาผลาญ") ||
-						strings.HasPrefix(lineClean, "#") ||
-						strings.HasPrefix(lineClean, "คำแนะนำ") {
-						continue
-					}
-
-					parts := strings.Split(lineClean, "-")
-					if len(parts) == 0 {
-						continue
-					}
-					exName := strings.TrimSpace(parts[0])
-					exName = strings.Trim(exName, "()[]{}*# \t")
-
-					if exName == "" || strings.EqualFold(exName, "อุปกรณ์") || strings.EqualFold(exName, "กล้ามเนื้อ") {
-						continue
-					}
-
-					var ex models.Exercise
-					if err := config.DB.Where("LOWER(name) = ?", strings.ToLower(exName)).First(&ex).Error; err != nil {
-						ex = models.Exercise{
-							Name:            exName,
-							Description:     exName,
-							MuscleGroup:     "Full Body",
-							EquipmentNeeded: "Bodyweight",
-							BurnRate:        6.0,
-							DifficultyLevel: "BEGINNER",
-						}
-						config.DB.Create(&ex)
-					}
-
-					detail := models.WorkoutScheduleDetail{
-						WorkoutScheduleID: schedule.ScheduleID,
-						ExerciseID:        ex.ExerciseID,
-						Sets:              3,
-						Reps:              12,
-						DurationSeconds:   45,
-					}
-					config.DB.Create(&detail)
-				}
-			}
+		for _, exName := range services.ExtractExerciseNames(w.Description) {
+			saveScheduleExercise(schedule.ScheduleID, exName)
 		}
 	}
-
 	return createdCount
+}
+
+// saveScheduleExercise links an exercise (created if unknown) to a schedule.
+func saveScheduleExercise(scheduleID uuid.UUID, name string) {
+	var ex models.Exercise
+	if err := config.DB.Where("LOWER(name) = ?", strings.ToLower(name)).First(&ex).Error; err != nil {
+		ex = models.Exercise{
+			Name:            name,
+			Description:     name,
+			MuscleGroup:     "Full Body",
+			EquipmentNeeded: "Bodyweight",
+			BurnRate:        6.0,
+			DifficultyLevel: "BEGINNER",
+		}
+		config.DB.Create(&ex)
+	}
+	config.DB.Create(&models.WorkoutScheduleDetail{
+		WorkoutScheduleID: scheduleID,
+		ExerciseID:        ex.ExerciseID,
+		Sets:              3,
+		Reps:              12,
+		DurationSeconds:   45,
+	})
 }
 
 func generateSmartFallbackSchedule(userID uuid.UUID, user models.User) int {
