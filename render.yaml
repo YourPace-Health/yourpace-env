@@ -2,7 +2,7 @@
 # Secrets marked sync:false are entered in the Render dashboard, never committed.
 databases:
   - name: yourpace-db
-    databaseName: youPace_DB
+    databaseName: youpace_db
     user: yourpace
     plan: free
 
