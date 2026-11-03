@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { API_BASE_URL } from './config/api';
 import {
   Bot,
   Sparkles,
@@ -846,8 +847,7 @@ function App() {
   const [calendarLoading, setCalendarLoading] = useState(false);
 
   const getApiUrl = (path) => {
-    const port = import.meta.env.VITE_BACKEND_PORT || (window.location.port === "8080" ? "8080" : "8081");
-    return `http://${window.location.hostname}:${port}/api${path}`;
+    return `${API_BASE_URL}${path}`;
   };
 
   // Fetch Today Meals & Nutrition
