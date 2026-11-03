@@ -180,27 +180,18 @@ func CallGemini(prompt string) (string, error) {
 		jsonBytes, errMarshal := json.Marshal(reqBody)
 		if errMarshal == nil {
 			client := &http.Client{Timeout: 30 * time.Second}
-			resp, errPost := client.Post(requestURL, "application/json", bytes.NewBuffer(jsonBytes))
-			if errPost != nil {
-				log.Printf("Gemini API call failed with connection error: %v", errPost)
-			} else {
-				defer resp.Body.Close()
-				bodyBytes, errRead := io.ReadAll(resp.Body)
-				if errRead == nil {
-					if resp.StatusCode == http.StatusOK {
-						var geminiResp GeminiResponse
-						if errUnmarshal := json.Unmarshal(bodyBytes, &geminiResp); errUnmarshal == nil {
-							if len(geminiResp.Candidates) > 0 && len(geminiResp.Candidates[0].Content.Parts) > 0 {
-								return geminiResp.Candidates[0].Content.Parts[0].Text, nil
-							}
-						} else {
-							log.Printf("Gemini API call response unmarshal error: %v, body: %s", errUnmarshal, string(bodyBytes))
-						}
-					} else {
-						log.Printf("Gemini API call returned status %d, body: %s", resp.StatusCode, string(bodyBytes))
-					}
-				} else {
-					log.Printf("Gemini API call response read error: %v", errRead)
+			status, bodyBytes, errPost := postJSONWithRetry(client, requestURL, jsonBytes, 3)
+			switch {
+			case errPost != nil:
+				log.Printf("Gemini API call failed: %v", errPost)
+			case status != http.StatusOK:
+				log.Printf("Gemini API call returned status %d, body: %s", status, string(bodyBytes))
+			default:
+				var geminiResp GeminiResponse
+				if errUnmarshal := json.Unmarshal(bodyBytes, &geminiResp); errUnmarshal != nil {
+					log.Printf("Gemini API call response unmarshal error: %v, body: %s", errUnmarshal, string(bodyBytes))
+				} else if len(geminiResp.Candidates) > 0 && len(geminiResp.Candidates[0].Content.Parts) > 0 {
+					return geminiResp.Candidates[0].Content.Parts[0].Text, nil
 				}
 			}
 		}
@@ -344,19 +335,13 @@ func CallGeminiVision(prompt string, mimeType string, base64Data string) (string
 	}
 
 	client := &http.Client{Timeout: 60 * time.Second}
-	resp, err := client.Post(urlStr, "application/json", bytes.NewBuffer(jsonBytes))
-	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
-
-	bodyBytes, err := io.ReadAll(resp.Body)
+	status, bodyBytes, err := postJSONWithRetry(client, urlStr, jsonBytes, 3)
 	if err != nil {
 		return "", err
 	}
 
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("Gemini Vision API status %d: %s", resp.StatusCode, string(bodyBytes))
+	if status != http.StatusOK {
+		return "", fmt.Errorf("Gemini Vision API status %d: %s", status, string(bodyBytes))
 	}
 
 	var geminiResp GeminiResponse

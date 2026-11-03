@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/base64"
 	"fmt"
 	"math"
 	"net/http"
@@ -240,6 +241,46 @@ type MealPhotoAnalysisRequest struct {
 	MimeType  string `json:"mimeType"`                     // e.g. "image/jpeg", "image/png"
 }
 
+// maxMealPhotoBytes is the largest decoded image accepted for AI analysis.
+const maxMealPhotoBytes = 5 * 1024 * 1024
+
+var allowedMealPhotoTypes = map[string]bool{
+	"image/jpeg": true,
+	"image/png":  true,
+	"image/webp": true,
+}
+
+// validateMealPhoto strips an optional data-URL prefix, checks the MIME type
+// and decoded size, and returns the clean base64 payload plus its MIME type.
+func validateMealPhoto(req MealPhotoAnalysisRequest) (string, string, error) {
+	b64 := req.ImageData
+	mimeType := req.MimeType
+	if commaIdx := strings.Index(b64, ","); commaIdx != -1 {
+		prefix := b64[:commaIdx]
+		b64 = b64[commaIdx+1:]
+		if mimeType == "" && strings.HasPrefix(prefix, "data:") {
+			mimeType = strings.TrimSuffix(strings.TrimPrefix(prefix, "data:"), ";base64")
+		}
+	}
+	if mimeType == "" {
+		mimeType = "image/jpeg"
+	}
+	if !allowedMealPhotoTypes[mimeType] {
+		return "", "", fmt.Errorf("unsupported image type %q (use jpeg, png or webp)", mimeType)
+	}
+	if base64.StdEncoding.DecodedLen(len(b64)) > maxMealPhotoBytes+3 {
+		return "", "", fmt.Errorf("image is too large (max %d MB)", maxMealPhotoBytes/(1024*1024))
+	}
+	decoded, err := base64.StdEncoding.DecodeString(b64)
+	if err != nil {
+		return "", "", fmt.Errorf("imageData is not valid base64")
+	}
+	if len(decoded) > maxMealPhotoBytes {
+		return "", "", fmt.Errorf("image is too large (max %d MB)", maxMealPhotoBytes/(1024*1024))
+	}
+	return b64, mimeType, nil
+}
+
 func AnalyzeMealPhotoPreview(c echo.Context) error {
 	userID, err := ExtractUserID(c)
 	if err != nil {
@@ -265,13 +306,12 @@ func AnalyzeMealPhotoPreview(c echo.Context) error {
 		goal = "Maintain General Health"
 	}
 
-	// Clean base64 prefix if present (e.g. data:image/jpeg;base64,...)
-	b64 := req.ImageData
-	if commaIdx := strings.Index(b64, ","); commaIdx != -1 {
-		b64 = b64[commaIdx+1:]
+	b64, mimeType, err := validateMealPhoto(req)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
 	}
 
-	analysis, err := services.AnalyzeMealPhoto(b64, req.MimeType, goal)
+	analysis, err := services.AnalyzeMealPhoto(b64, mimeType, goal)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "ไม่สามารถวิเคราะห์ภาพอาหารได้ในขณะนี้: " + err.Error()})
 	}
