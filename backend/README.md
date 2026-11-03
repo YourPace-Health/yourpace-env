@@ -25,7 +25,7 @@ backend/
 ├── services/           # Business logic (Gemini API connector, health formulas, OTP service)
 ├── main.go             # Application entry point & router setup
 ├── go.mod / go.sum     # Dependency management files
-└── .env.example        # Configuration template for local variables
+(env template: ../.env.example at the repo root)
 ```
 
 ---
@@ -42,7 +42,7 @@ To run this backend service independently without Docker:
 ### Step 1: Initialize Environment Variables
 Create a local config file from the template:
 ```bash
-cp .env.example .env
+cp ../.env.example .env
 ```
 Open `.env` and fill in your local Postgres credentials, Redis details, and Gemini/Google OAuth key parameters.
 
@@ -66,5 +66,6 @@ The server will boot up and automatically run DB migrations. By default, it runs
 *   `POST /api/mentor/chat` - Chat with the AI Fitness Mentor.
 *   `POST /api/schedules/generate` - Automatically generate a weekly workout routine.
 *   `GET /api/calendar/auth-url` - Retrieve the URL to authorize Google Calendar synchronization.
+*   `GET /health` - Liveness check (no auth).
 *   `GET /api/water/today` - View water log for the current day.
 *   `POST /api/health/weight` - Log a new weight entry.

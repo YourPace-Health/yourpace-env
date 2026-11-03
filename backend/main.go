@@ -2,7 +2,9 @@ package main
 
 import (
 	"log"
+	"net/http"
 	"os"
+	"strings"
 
 	"youpace/config"
 	"youpace/handlers"
@@ -58,10 +60,15 @@ func main() {
 	e.Use(echoMiddleware.Logger())
 	e.Use(echoMiddleware.Recover())
 	e.Use(echoMiddleware.CORSWithConfig(echoMiddleware.CORSConfig{
-		AllowOrigins: []string{"*"},
+		AllowOrigins: allowedOrigins(),
 		AllowMethods: []string{echo.GET, echo.PUT, echo.POST, echo.DELETE, echo.OPTIONS},
 		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
 	}))
+
+	// Health check (used by Render / load balancers)
+	e.GET("/health", func(c echo.Context) error {
+		return c.JSON(http.StatusOK, map[string]string{"status": "ok"})
+	})
 
 	// Static route
 	e.Static("/uploads", "uploads")
@@ -129,7 +136,6 @@ func main() {
 	apiGroup.DELETE("/schedules", handlers.DeleteAllSchedules)
 	apiGroup.DELETE("/schedules/:id", handlers.DeleteSchedule)
 
-
 	// Meals & AI Nutrition Tracker
 	apiGroup.POST("/meals/log", handlers.LogMeal)
 	apiGroup.POST("/meals/preview", handlers.AnalyzeMealPreview)
@@ -152,7 +158,6 @@ func main() {
 	apiGroup.POST("/mentor/calculate-burn", handlers.CalculateBurnWithN8N)
 	apiGroup.GET("/mentor/weekly-recap", handlers.GenerateWeeklyHealthRecap)
 
-
 	// Health Progress & Weight Tracking
 	apiGroup.POST("/health/weight", handlers.LogWeight)
 	apiGroup.GET("/health/weight/history", handlers.GetWeightHistory)
@@ -169,8 +174,6 @@ func main() {
 	log.Printf("Starting youPace server on port %s...", port)
 	e.Logger.Fatal(e.Start(":" + port))
 }
-
-
 
 func seedDefaultEquipments() {
 	log.Println("Seeding default equipment data into database...")
@@ -215,4 +218,20 @@ func seedDefaultEquipments() {
 		}
 	}
 	log.Println("Successfully seeded default equipments")
+}
+
+// allowedOrigins returns the CORS allow-list. FRONTEND_URL may hold several
+// comma-separated origins; when unset (local dev) every origin is allowed.
+func allowedOrigins() []string {
+	raw := os.Getenv("FRONTEND_URL")
+	if raw == "" {
+		return []string{"*"}
+	}
+	origins := []string{"http://localhost:3000", "http://localhost:5173"}
+	for _, o := range strings.Split(raw, ",") {
+		if o = strings.TrimRight(strings.TrimSpace(o), "/"); o != "" {
+			origins = append(origins, o)
+		}
+	}
+	return origins
 }

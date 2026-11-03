@@ -19,8 +19,8 @@ graph TD
 ```
 
 ### Repository Structure
-*   **[`/backend`](file:///c:/Users/Soranut/Desktop/YourPaceEnv/backend)**: RESTful API service built with Go (Golang) and Echo framework.
-*   **[`/frontend`](file:///c:/Users/Soranut/Desktop/YourPaceEnv/frontend)**: Client application built with React and Vite.
+*   **[`/backend`](backend)**: RESTful API service built with Go (Golang) and Echo framework.
+*   **[`/frontend`](frontend)**: Client application built with React and Vite.
 *   **`docker-compose.yml`**: Multicontainer orchestration configuration for local development and staging.
 *   **`Jenkinsfile` & `Dockerfile.jenkins`**: Continuous Integration and Deployment configurations.
 
@@ -31,7 +31,7 @@ graph TD
 *   **Backend:** Go (Echo, GORM, Go-JWT)
 *   **Frontend:** React (Vite, CSS Modules)
 *   **Databases:** PostgreSQL 15 (Relational storage), Redis 7 (Caching & session logs)
-*   **AI Integration:** Google Gemini 1.5 Flash (API)
+*   **AI Integration:** Google Gemini Flash-Lite (API, model set by `GEMINI_URL`)
 *   **Integrations & Automation:** n8n Webhook workflows, Google Calendar API
 *   **CI/CD Pipeline:** Jenkins (Pipelines), SonarQube (Static Code Quality Assessment)
 *   **Deployment:** Docker, Docker Compose
@@ -43,11 +43,11 @@ graph TD
 To run the complete ecosystem locally, ensure you have **Docker** and **Docker Compose** installed on your system.
 
 ### 1. Configure Environment Variables
-Copy the backend `.env.example` to create your local configurations:
+Copy the root `.env.example` to create your local configurations:
 ```bash
-cp backend/.env.example backend/.env
+cp .env.example .env
 ```
-Fill in the required credentials in `backend/.env` (specifically `GEMINI_API_KEY`, `GOOGLE_CLIENT_ID`, and `GOOGLE_CLIENT_SECRET`).
+Fill in the required credentials in `.env` (`POSTGRES_PASSWORD`, `JWT_SECRET`, and specifically `GEMINI_API_KEY`, `GOOGLE_CLIENT_ID`, and `GOOGLE_CLIENT_SECRET`).
 
 ### 2. Launch Services with Docker Compose
 From the root directory, spin up all services (PostgreSQL, Redis, Backend Go API, React Frontend, and n8n) using:
