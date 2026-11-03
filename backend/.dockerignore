@@ -1,0 +1,7 @@
+.env
+.env.*
+*.exe
+*_test.go
+coverage.out
+uploads/
+.git

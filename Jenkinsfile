@@ -20,17 +20,15 @@ pipeline {
                     steps {
                         dir('backend') {
                             echo 'Verifying Go code formatting and static analysis...'
-                            // go vet ./...
-                            echo 'Backend Go vet and static analysis passed'
+                            sh 'go vet ./...'
                         }
                     }
                 }
                 stage('Frontend Quality') {
                     steps {
                         dir('frontend') {
-                            echo 'Running Frontend ESLint check...'
-                            // npm run lint
-                            echo 'Frontend ESLint check passed'
+                            sh 'npm ci'
+                            sh 'npm run lint'
                         }
                     }
                 }
@@ -40,9 +38,7 @@ pipeline {
         stage('Backend Tests') {
             steps {
                 dir('backend') {
-                    echo 'Running backend unit tests...'
-                    // go test ./... -v
-                    echo 'Backend tests completed successfully'
+                    sh 'go test ./... -coverprofile=coverage.out'
                 }
             }
         }
@@ -50,9 +46,8 @@ pipeline {
         stage('Frontend Tests') {
             steps {
                 dir('frontend') {
-                    echo 'Running frontend tests...'
-                    // npm test --if-present
-                    echo 'Frontend tests completed successfully'
+                    sh 'npm test --if-present'
+                    sh 'npm run build'
                 }
             }
         }
@@ -60,7 +55,9 @@ pipeline {
         stage('SonarQube Analysis') {
             steps {
                 echo 'Running SonarQube code quality analysis...'
-                sh 'sonar-scanner -Dsonar.host.url=http://sonarqube:9000 -Dsonar.token=${SONAR_TOKEN}'
+                withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
+                    sh 'sonar-scanner -Dsonar.host.url=http://sonarqube:9000 -Dsonar.token=$SONAR_TOKEN'
+                }
             }
         }
 
