@@ -76,6 +76,7 @@ func main() {
 	// 6. Routes
 	// Public Auth Routes (No JWT middleware required)
 	authGroup := e.Group("/api/auth")
+	authGroup.Use(middleware.RateLimit(10))
 	authGroup.POST("/register", handlers.Register)
 	authGroup.POST("/login", handlers.Login)
 	authGroup.POST("/verify-otp", handlers.VerifyOTP)
@@ -88,7 +89,11 @@ func main() {
 	e.GET("/api/calendar/callback", handlers.GoogleCalendarCallback)
 
 	apiGroup := e.Group("/api")
+	apiGroup.Use(echoMiddleware.BodyLimit("8M"))
 	apiGroup.Use(middleware.JWTMiddleware)
+
+	// Per-user limits on routes that call Gemini / n8n (costly upstreams)
+	aiLimit := middleware.RateLimit(20)
 
 	// User Profile & Settings
 	apiGroup.GET("/users/profile", handlers.GetUserProfile)
@@ -138,25 +143,25 @@ func main() {
 
 	// Meals & AI Nutrition Tracker
 	apiGroup.POST("/meals/log", handlers.LogMeal)
-	apiGroup.POST("/meals/preview", handlers.AnalyzeMealPreview)
-	apiGroup.POST("/meals/analyze-photo", handlers.AnalyzeMealPhotoPreview)
+	apiGroup.POST("/meals/preview", handlers.AnalyzeMealPreview, aiLimit)
+	apiGroup.POST("/meals/analyze-photo", handlers.AnalyzeMealPhotoPreview, aiLimit)
 	apiGroup.GET("/meals/today", handlers.GetTodayMealsSummary)
 	apiGroup.GET("/meals/history", handlers.GetMealHistory)
 	apiGroup.GET("/meals/energy-balance", handlers.GetEnergyBalanceSummary)
 	apiGroup.GET("/meals/weekly-analytics", handlers.GetWeeklyNutritionAnalytics)
-	apiGroup.GET("/meals/coach-feedback", handlers.GetDailyNutritionCoachFeedback)
+	apiGroup.GET("/meals/coach-feedback", handlers.GetDailyNutritionCoachFeedback, aiLimit)
 	apiGroup.DELETE("/meals/:id", handlers.DeleteMeal)
 
 	// Health Dashboard
 	apiGroup.GET("/dashboard/summary", handlers.GetDashboardSummary)
 
 	// AI Fitness Mentor
-	apiGroup.POST("/mentor/chat", handlers.ChatWithMentor)
+	apiGroup.POST("/mentor/chat", handlers.ChatWithMentor, aiLimit)
 	apiGroup.GET("/mentor/history", handlers.GetChatHistory)
 	apiGroup.DELETE("/mentor/history", handlers.ClearChatHistory)
-	apiGroup.POST("/mentor/n8n-plan", handlers.PlanWorkoutInFreeTimeWithN8N)
-	apiGroup.POST("/mentor/calculate-burn", handlers.CalculateBurnWithN8N)
-	apiGroup.GET("/mentor/weekly-recap", handlers.GenerateWeeklyHealthRecap)
+	apiGroup.POST("/mentor/n8n-plan", handlers.PlanWorkoutInFreeTimeWithN8N, aiLimit)
+	apiGroup.POST("/mentor/calculate-burn", handlers.CalculateBurnWithN8N, aiLimit)
+	apiGroup.GET("/mentor/weekly-recap", handlers.GenerateWeeklyHealthRecap, aiLimit)
 
 	// Health Progress & Weight Tracking
 	apiGroup.POST("/health/weight", handlers.LogWeight)
