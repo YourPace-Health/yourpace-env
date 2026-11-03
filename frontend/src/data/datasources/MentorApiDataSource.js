@@ -1,9 +1,10 @@
 // src/data/datasources/MentorApiDataSource.js
 
+import { API_BASE_URL } from "../../config/api";
+
 export class MentorApiDataSource {
   constructor() {
-    const port = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_BACKEND_PORT) || (window.location.port === "8080" ? "8080" : "8081");
-    this.API_URL = `http://${window.location.hostname}:${port}/api`;
+    this.API_URL = API_BASE_URL;
   }
 
   async chatWithMentor(message, token) {

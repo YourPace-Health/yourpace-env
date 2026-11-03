@@ -5,12 +5,13 @@
  * ทำหน้าที่ติดต่อกับ Server API และจัดเก็บ Token ของเซสชันลงใน LocalStorage/SessionStorage
  * สำหรับ Stay Signed In และเชื่อมต่อกับ Go backend จริงๆ
  */
+import { API_BASE_URL } from "../../config/api";
+
 export class AuthApiDataSource {
   constructor() {
     this.STORAGE_KEY = "yourpace_session";
     // ปรับพอร์ตอัตโนมัติ: หากรันบนพอร์ต 3000 (Docker Compose) ชี้ไปที่ 8081
-    const port = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_BACKEND_PORT) || (window.location.port === "8080" ? "8080" : "8081");
-    this.API_URL = `http://${window.location.hostname}:${port}/api`;
+    this.API_URL = API_BASE_URL;
   }
 
   async loginWithEmail(email, password, staySignedIn) {

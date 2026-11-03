@@ -1,0 +1,54 @@
+# Render Blueprint: Go backend + Postgres + Redis (Key Value).
+# Secrets marked sync:false are entered in the Render dashboard, never committed.
+databases:
+  - name: yourpace-db
+    databaseName: youpace_db
+    user: yourpace
+    plan: free
+
+services:
+  - type: keyvalue
+    name: yourpace-redis
+    plan: free
+    ipAllowList: []
+    maxmemoryPolicy: allkeys-lru
+
+  - type: web
+    name: yourpace-backend
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: free
+    envVars:
+      - key: PORT
+        value: "8080"
+      - key: DB_HOST
+        fromDatabase: { name: yourpace-db, property: host }
+      - key: DB_PORT
+        fromDatabase: { name: yourpace-db, property: port }
+      - key: DB_USER
+        fromDatabase: { name: yourpace-db, property: user }
+      - key: DB_PASSWORD
+        fromDatabase: { name: yourpace-db, property: password }
+      - key: DB_NAME
+        fromDatabase: { name: yourpace-db, property: database }
+      - key: DB_SSLMODE
+        value: require
+      - key: REDIS_HOST
+        fromService: { type: keyvalue, name: yourpace-redis, property: host }
+      - key: REDIS_PORT
+        fromService: { type: keyvalue, name: yourpace-redis, property: port }
+      - key: JWT_SECRET
+        generateValue: true
+      - key: MAIL_ENABLED
+        value: "false"
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_REDIRECT_URI
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
