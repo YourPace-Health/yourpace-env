@@ -13,6 +13,7 @@ import {
   Zap
 } from 'lucide-react';
 import { ProfileApiDataSource } from '../../data/datasources/ProfileApiDataSource';
+import { ReminderSettings } from '../components/Profile/ReminderSettings';
 
 const profileDataSource = new ProfileApiDataSource();
 
@@ -282,10 +283,10 @@ export function ProfilePage({ userToken, onBackToDashboard, onProfileUpdateSucce
             {/* Row 1: Basic Biometrics */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '20px' }}>
               <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: 'var(--text-dark)', marginBottom: '8px' }}>
+                <label htmlFor="profilepage-field-286" style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: 'var(--text-dark)', marginBottom: '8px' }}>
                   อายุ (ปี)
                 </label>
-                <input 
+                <input id="profilepage-field-286" 
                   type="number" 
                   min={1} 
                   max={120}
@@ -304,10 +305,10 @@ export function ProfilePage({ userToken, onBackToDashboard, onProfileUpdateSucce
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: 'var(--text-dark)', marginBottom: '8px' }}>
+                <label htmlFor="profilepage-field-308" style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: 'var(--text-dark)', marginBottom: '8px' }}>
                   เพศ
                 </label>
-                <select 
+                <select id="profilepage-field-308" 
                   value={gender} 
                   onChange={(e) => setGender(e.target.value)}
                   style={{
@@ -326,11 +327,11 @@ export function ProfilePage({ userToken, onBackToDashboard, onProfileUpdateSucce
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: 'var(--text-dark)', marginBottom: '8px' }}>
+                <label htmlFor="profilepage-field-330" style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: 'var(--text-dark)', marginBottom: '8px' }}>
                   ส่วนสูง (ซม.)
                 </label>
                 <div style={{ position: 'relative' }}>
-                  <input 
+                  <input id="profilepage-field-330" 
                     type="number" 
                     min={50} 
                     max={250}
@@ -352,11 +353,11 @@ export function ProfilePage({ userToken, onBackToDashboard, onProfileUpdateSucce
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: 'var(--text-dark)', marginBottom: '8px' }}>
+                <label htmlFor="profilepage-field-356" style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: 'var(--text-dark)', marginBottom: '8px' }}>
                   น้ำหนักปัจจุบัน (กก.)
                 </label>
                 <div style={{ position: 'relative' }}>
-                  <input 
+                  <input id="profilepage-field-356" 
                     type="number" 
                     min={10} 
                     max={300}
@@ -390,11 +391,11 @@ export function ProfilePage({ userToken, onBackToDashboard, onProfileUpdateSucce
               alignItems: 'start'
             }}>
               <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#047857', marginBottom: '8px' }}>
+                <label htmlFor="profilepage-field-394" style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#047857', marginBottom: '8px' }}>
                   🎯 น้ำหนักเป้าหมายที่คุณต้องการ (กก.)
                 </label>
                 <div style={{ position: 'relative' }}>
-                  <input 
+                  <input id="profilepage-field-394" 
                     type="number" 
                     min={10} 
                     max={300}
@@ -421,7 +422,7 @@ export function ProfilePage({ userToken, onBackToDashboard, onProfileUpdateSucce
 
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                  <label style={{ fontSize: '13px', fontWeight: '700', color: '#0369a1' }}>
+                  <label htmlFor="profilepage-field-425" style={{ fontSize: '13px', fontWeight: '700', color: '#0369a1' }}>
                     📅 วันที่เป้าหมายที่จะบรรลุ (Target Timeline)
                   </label>
                   <span style={{ fontSize: '11px', color: '#64748b' }}>เลือกปุ่มด่วนด้านล่าง</span>
@@ -429,7 +430,7 @@ export function ProfilePage({ userToken, onBackToDashboard, onProfileUpdateSucce
                 
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
                   <div style={{ position: 'relative', flex: 1, minWidth: '160px' }}>
-                    <input 
+                    <input id="profilepage-field-425" 
                       type="date"
                       value={targetDate}
                       onChange={(e) => setTargetDate(e.target.value)}
@@ -761,11 +762,11 @@ export function ProfilePage({ userToken, onBackToDashboard, onProfileUpdateSucce
 
             {/* Custom Limitation Add */}
             <div style={{ borderTop: '1px solid #edf2f7', paddingTop: '20px' }}>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: 'var(--text-dark)', marginBottom: '8px' }}>
+              <label htmlFor="profilepage-field-765" style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: 'var(--text-dark)', marginBottom: '8px' }}>
                 ระบุข้อจำกัดเพิ่มเติมอื่นๆ ของตนเอง
               </label>
               <div style={{ display: 'flex', gap: '10px' }}>
-                <input 
+                <input id="profilepage-field-765" 
                   type="text" 
                   placeholder="เช่น ปวดข้อมือซ้าย, เพิ่งผ่าคลอดมา 3 เดือน, โรคความดันโลหิตสูง" 
                   value={customLimitation}
@@ -879,6 +880,8 @@ export function ProfilePage({ userToken, onBackToDashboard, onProfileUpdateSucce
 
         </form>
       )}
+
+      <ReminderSettings userToken={userToken} dataSource={profileDataSource} />
     </div>
   );
 }

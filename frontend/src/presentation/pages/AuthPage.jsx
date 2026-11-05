@@ -284,10 +284,10 @@ export function AuthPage({ onBackToHome, onAuthSuccess }) {
                     </p>
                   </div>
                   <div>
-                    <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: 'var(--text-dark)', marginBottom: '6px' }}>
+                    <label htmlFor="authpage-field-287" style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: 'var(--text-dark)', marginBottom: '6px' }}>
                       รหัส OTP 6 หลัก
                     </label>
-                    <input
+                    <input id="authpage-field-287"
                       name="otp"
                       type="text"
                       maxLength={6}
@@ -420,10 +420,10 @@ export function AuthPage({ onBackToHome, onAuthSuccess }) {
                       }
                     }} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                       <div>
-                        <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: 'var(--text-dark)', marginBottom: '6px' }}>
+                        <label htmlFor="authpage-field-423" style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: 'var(--text-dark)', marginBottom: '6px' }}>
                           ชื่อผู้ใช้
                         </label>
-                        <input
+                        <input id="authpage-field-423"
                           name="username"
                           type="text"
                           required
@@ -439,10 +439,10 @@ export function AuthPage({ onBackToHome, onAuthSuccess }) {
                         />
                       </div>
                       <div>
-                        <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: 'var(--text-dark)', marginBottom: '6px' }}>
+                        <label htmlFor="authpage-field-442" style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: 'var(--text-dark)', marginBottom: '6px' }}>
                           อีเมล
                         </label>
-                        <input
+                        <input id="authpage-field-442"
                           name="email"
                           type="email"
                           required
@@ -458,10 +458,10 @@ export function AuthPage({ onBackToHome, onAuthSuccess }) {
                         />
                       </div>
                       <div>
-                        <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: 'var(--text-dark)', marginBottom: '6px' }}>
+                        <label htmlFor="authpage-field-461" style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: 'var(--text-dark)', marginBottom: '6px' }}>
                           รหัสผ่าน
                         </label>
-                        <input
+                        <input id="authpage-field-461"
                           name="password"
                           type="password"
                           required

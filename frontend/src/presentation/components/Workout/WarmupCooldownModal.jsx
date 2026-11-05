@@ -1,3 +1,4 @@
+import { EscapeToClose } from '../../utils/EscapeToClose';
 import { Flame, Check, X, Droplets, Lightbulb } from 'lucide-react';
 import { WARMUP_COOLDOWN_DATA } from '../../../data/warmupCooldownData';
 
@@ -9,6 +10,7 @@ export const WarmupCooldownModal = ({ completedWarmupIds, handleToggleWarmupChec
 
     return (
       <div
+        role="presentation"
         style={{
           position: 'fixed',
           top: 0,
@@ -23,9 +25,16 @@ export const WarmupCooldownModal = ({ completedWarmupIds, handleToggleWarmupChec
           zIndex: 99999,
           padding: '16px'
         }}
-        onClick={() => setShowWarmupModal(false)}
+        onClick={(e) => {
+          // only a click on the backdrop itself closes; clicks inside the panel do not
+          if (e.target === e.currentTarget) setShowWarmupModal(false);
+        }}
       >
+        <EscapeToClose onClose={() => setShowWarmupModal(false)} />
         <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={warmupModalTitle || 'ท่าวอร์มอัพและคูลดาวน์'}
           style={{
             background: '#ffffff',
             borderRadius: '20px',
@@ -39,7 +48,6 @@ export const WarmupCooldownModal = ({ completedWarmupIds, handleToggleWarmupChec
             textAlign: 'left',
             animation: 'modalSlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
           }}
-          onClick={(e) => e.stopPropagation()}
         >
           {/* Modal Header */}
           <div style={{

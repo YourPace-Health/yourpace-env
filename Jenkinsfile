@@ -38,7 +38,18 @@ pipeline {
         stage('Backend Tests') {
             steps {
                 dir('backend') {
-                    sh 'go test ./... -coverprofile=coverage.out'
+                    // DB-backed handler tests need a throwaway Postgres. It joins this
+                    // container's network namespace, so it is reachable on localhost.
+                    sh '''
+                        docker rm -f yp-test-pg >/dev/null 2>&1 || true
+                        docker run -d --name yp-test-pg --network container:$(hostname) \\
+                            -e POSTGRES_PASSWORD=test -e POSTGRES_DB=youpace_test postgres:15-alpine
+                        for i in $(seq 1 30); do docker exec yp-test-pg pg_isready -U postgres && break; sleep 1; done
+                        export TEST_DATABASE_URL='host=localhost port=5432 user=postgres password=test dbname=youpace_test sslmode=disable'
+                        go test ./... -coverprofile=coverage.out; status=$?
+                        docker rm -f yp-test-pg >/dev/null 2>&1 || true
+                        exit $status
+                    '''
                 }
             }
         }

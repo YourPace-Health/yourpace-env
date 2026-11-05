@@ -22,12 +22,12 @@ export function MagicLinkForm({ onSubmit, isLoading }) {
 
       {/* Email Input */}
       <div>
-        <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: 'var(--text-dark)', marginBottom: '8px' }}>
+        <label htmlFor="magiclinkform-field-25" style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: 'var(--text-dark)', marginBottom: '8px' }}>
           อีเมลของคุณ
         </label>
         <div style={{ position: 'relative' }}>
           <Mail size={18} color="#94a3b8" style={{ position: 'absolute', left: '14px', top: '14px' }} />
-          <input
+          <input id="magiclinkform-field-25"
             type="email"
             required
             value={email}

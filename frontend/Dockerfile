@@ -4,7 +4,7 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 
 # คัดลอก package.json และ package-lock.json เพื่อติดตั้ง dependencies
-COPY package*.json ./
+COPY package*.json .npmrc ./
 
 RUN npm ci
 

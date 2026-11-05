@@ -1,7 +1,8 @@
+import { EscapeToClose } from '../../utils/EscapeToClose';
 import { Bot, Sparkles, Calendar, Flame, Check } from 'lucide-react';
 
 export const LogBurnModal = ({ aiBurnExplanation, aiIntensityMap, burnForm, calculateEndTimeString, handleBurnDurationChange, handleBurnIntensityChange, handleCalculateBurnWithN8N, handleSaveBurnLog, handleSelectPreset, isCalculatingAiBurn, isCalendarConnected, isSavingBurnLog, setBurnForm, setShowLogBurnModal, workoutPresets }) => (
-  <div style={{
+  <div role="dialog" aria-modal="true" aria-label="บันทึกแคลอรี่ที่เผาผลาญ" style={{
     position: 'fixed',
     top: 0,
     left: 0,
@@ -18,6 +19,7 @@ export const LogBurnModal = ({ aiBurnExplanation, aiIntensityMap, burnForm, calc
     padding: '16px',
     overflowY: 'auto'
   }}>
+    <EscapeToClose onClose={() => setShowLogBurnModal(false)} />
     <div style={{
       background: '#ffffff',
       borderRadius: '16px',
@@ -61,10 +63,10 @@ export const LogBurnModal = ({ aiBurnExplanation, aiIntensityMap, burnForm, calc
 
       {/* Quick Activity Presets */}
       <div style={{ marginBottom: '14px' }}>
-        <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>
+        <div id="burn-preset-label" style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>
           ⚡ เลือกกิจกรรมยอดนิยม หรือตัวเลือกอื่นๆ
-        </label>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(78px, 1fr))', gap: '6px' }}>
+        </div>
+        <div role="group" aria-labelledby="burn-preset-label" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(78px, 1fr))', gap: '6px' }}>
           {workoutPresets.map((preset) => {
             const isSelected = burnForm.selectedPresetId === preset.id;
             const isAi = preset.isAiCustom;
@@ -108,10 +110,10 @@ export const LogBurnModal = ({ aiBurnExplanation, aiIntensityMap, burnForm, calc
 
       <form onSubmit={handleSaveBurnLog} style={{ display: 'flex', flexDirection: 'column', gap: '13px' }}>
         <div>
-          <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: 'var(--text-dark)', marginBottom: '5px' }}>
+          <label htmlFor="logburnmodal-field-111" style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: 'var(--text-dark)', marginBottom: '5px' }}>
             ชื่อกิจกรรม / ชนิดการออกกำลังกาย <span style={{ color: '#ef4444' }}>*</span>
           </label>
-          <input
+          <input id="logburnmodal-field-111"
             type="text"
             value={burnForm.title}
             onChange={(e) => setBurnForm({ ...burnForm, title: e.target.value })}
@@ -129,10 +131,10 @@ export const LogBurnModal = ({ aiBurnExplanation, aiIntensityMap, burnForm, calc
 
         <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr', gap: '8px' }}>
           <div>
-            <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: 'var(--text-dark)', marginBottom: '5px' }}>
+            <label htmlFor="logburnmodal-field-132" style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: 'var(--text-dark)', marginBottom: '5px' }}>
               วันที่ออกกำลังกาย
             </label>
-            <input
+            <input id="logburnmodal-field-132"
               type="date"
               value={burnForm.scheduledDate}
               onChange={(e) => setBurnForm({ ...burnForm, scheduledDate: e.target.value })}
@@ -147,10 +149,10 @@ export const LogBurnModal = ({ aiBurnExplanation, aiIntensityMap, burnForm, calc
             />
           </div>
           <div>
-            <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: 'var(--text-dark)', marginBottom: '5px' }}>
+            <label htmlFor="logburnmodal-field-150" style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: 'var(--text-dark)', marginBottom: '5px' }}>
               เวลาที่เริ่ม
             </label>
-            <input
+            <input id="logburnmodal-field-150"
               type="time"
               value={burnForm.scheduledTime}
               onChange={(e) => setBurnForm({ ...burnForm, scheduledTime: e.target.value })}
@@ -165,10 +167,10 @@ export const LogBurnModal = ({ aiBurnExplanation, aiIntensityMap, burnForm, calc
             />
           </div>
           <div>
-            <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: 'var(--text-dark)', marginBottom: '5px' }}>
+            <label htmlFor="logburnmodal-field-168" style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: 'var(--text-dark)', marginBottom: '5px' }}>
               ระยะเวลา (นาที) <span style={{ color: '#ef4444' }}>*</span>
             </label>
-            <input
+            <input id="logburnmodal-field-168"
               type="number"
               min="1"
               max="1440"
@@ -189,16 +191,16 @@ export const LogBurnModal = ({ aiBurnExplanation, aiIntensityMap, burnForm, calc
         {/* Intensity Level Selection */}
         <div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-            <label style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-dark)' }}>
+            <div id="burn-intensity-label" style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-dark)' }}>
               ระดับความเหนื่อย / ความเข้มข้น (Intensity)
-            </label>
+            </div>
             {aiIntensityMap && (
               <span style={{ fontSize: '11px', color: '#7c3aed', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '3px' }}>
                 <Sparkles size={12} /> ผลลัพธ์ AI 3 ระดับ
               </span>
             )}
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
+          <div role="group" aria-labelledby="burn-intensity-label" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
             {[
               { key: 'LIGHT', label: '🟢 เบาๆ (Light)', defaultDesc: 'สบายๆ พูดคุยได้' },
               { key: 'MODERATE', label: '🟡 ปานกลาง (Moderate)', defaultDesc: 'เหงื่อซึม หายใจเร็วขึ้น' },
@@ -254,10 +256,10 @@ export const LogBurnModal = ({ aiBurnExplanation, aiIntensityMap, burnForm, calc
         </div>
 
         <div>
-          <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: 'var(--text-dark)', marginBottom: '5px' }}>
+          <label htmlFor="logburnmodal-field-257" style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: 'var(--text-dark)', marginBottom: '5px' }}>
             บันทึกรายละเอียดเพิ่มเติม (ตัวเลือก)
           </label>
-          <textarea
+          <textarea id="logburnmodal-field-257"
             rows="2"
             value={burnForm.description}
             onChange={(e) => setBurnForm({ ...burnForm, description: e.target.value })}
@@ -350,7 +352,7 @@ export const LogBurnModal = ({ aiBurnExplanation, aiIntensityMap, burnForm, calc
 
         <div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '5px' }}>
-            <label style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-dark)' }}>
+            <label htmlFor="logburnmodal-field-353" style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-dark)' }}>
               พลังงานที่เผาผลาญ (kcal)
             </label>
             <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
@@ -360,7 +362,7 @@ export const LogBurnModal = ({ aiBurnExplanation, aiIntensityMap, burnForm, calc
             </span>
           </div>
           <div style={{ position: 'relative' }}>
-            <input
+            <input id="logburnmodal-field-353"
               type="number"
               min="1"
               value={burnForm.burnedCalories}

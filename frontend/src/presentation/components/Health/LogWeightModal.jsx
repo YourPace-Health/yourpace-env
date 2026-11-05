@@ -1,7 +1,8 @@
+import { EscapeToClose } from '../../utils/EscapeToClose';
 import { Check, X, Scale } from 'lucide-react';
 
 export const LogWeightModal = ({ handleSaveWeight, isSavingWeight, setShowLogWeightModal, setWeightForm, weightForm }) => (
-  <div style={{
+  <div role="dialog" aria-modal="true" aria-label="บันทึกน้ำหนัก" style={{
     position: 'fixed',
     top: 0,
     left: 0,
@@ -17,6 +18,7 @@ export const LogWeightModal = ({ handleSaveWeight, isSavingWeight, setShowLogWei
     margin: 0,
     boxSizing: 'border-box'
   }}>
+    <EscapeToClose onClose={() => setShowLogWeightModal(false)} />
     <div style={{
       background: '#ffffff',
       borderRadius: '16px',
@@ -60,11 +62,11 @@ export const LogWeightModal = ({ handleSaveWeight, isSavingWeight, setShowLogWei
 
       <form onSubmit={handleSaveWeight} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
         <div>
-          <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#0f172a', marginBottom: '5px' }}>
+          <label htmlFor="logweightmodal-field-63" style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#0f172a', marginBottom: '5px' }}>
             น้ำหนักปัจจุบัน (กก.) <span style={{ color: '#ef4444' }}>*</span>
           </label>
           <div style={{ position: 'relative' }}>
-            <input
+            <input id="logweightmodal-field-63"
               type="number"
               step="0.1"
               min="20"
@@ -91,10 +93,10 @@ export const LogWeightModal = ({ handleSaveWeight, isSavingWeight, setShowLogWei
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
           <div>
-            <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: '#334155', marginBottom: '5px' }}>
+            <label htmlFor="logweightmodal-field-94" style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: '#334155', marginBottom: '5px' }}>
               เปอร์เซ็นต์ไขมัน (%) <span style={{ fontSize: '11px', color: '#94a3b8' }}>(ตัวเลือก)</span>
             </label>
-            <input
+            <input id="logweightmodal-field-94"
               type="number"
               step="0.1"
               min="1"
@@ -112,10 +114,10 @@ export const LogWeightModal = ({ handleSaveWeight, isSavingWeight, setShowLogWei
             />
           </div>
           <div>
-            <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: '#334155', marginBottom: '5px' }}>
+            <label htmlFor="logweightmodal-field-115" style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: '#334155', marginBottom: '5px' }}>
               วันที่ชั่งน้ำหนัก
             </label>
-            <input
+            <input id="logweightmodal-field-115"
               type="date"
               value={weightForm.logDate}
               onChange={(e) => setWeightForm({ ...weightForm, logDate: e.target.value })}
@@ -132,10 +134,10 @@ export const LogWeightModal = ({ handleSaveWeight, isSavingWeight, setShowLogWei
         </div>
 
         <div>
-          <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: '#334155', marginBottom: '5px' }}>
+          <label htmlFor="logweightmodal-field-135" style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: '#334155', marginBottom: '5px' }}>
             บันทึกความรู้สึก / โน้ตเพิ่มเติม
           </label>
-          <textarea
+          <textarea id="logweightmodal-field-135"
             rows="2"
             value={weightForm.notes}
             onChange={(e) => setWeightForm({ ...weightForm, notes: e.target.value })}

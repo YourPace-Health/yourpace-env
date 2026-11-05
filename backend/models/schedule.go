@@ -15,6 +15,7 @@ type WorkoutSchedule struct {
 	Status          string                  `gorm:"type:varchar(50);default:'PENDING'" json:"status"` // PENDING, COMPLETED, MISSED, RESCHEDULED
 	TargetIntensity string                  `gorm:"type:varchar(50)" json:"targetIntensity"`         // LIGHT, MODERATE, INTENSE
 	BurnedCalories  float64                 `json:"burnedCalories"`
+	ReminderSentAt  *time.Time              `json:"reminderSentAt,omitempty"`
 	
 	// Relations
 	Details         []WorkoutScheduleDetail `gorm:"foreignKey:WorkoutScheduleID;constraint:OnDelete:CASCADE" json:"details,omitempty"`

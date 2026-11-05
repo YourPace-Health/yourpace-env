@@ -33,3 +33,22 @@ describe('LogWeightModal', () => {
     expect(p.setShowLogWeightModal).toHaveBeenCalledWith(false);
   });
 });
+
+describe('LogWeightModal accessibility', () => {
+  it('is a labelled modal dialog that closes on Escape', () => {
+    const p = props();
+    const { container } = render(<LogWeightModal {...p} />);
+    const dialog = container.querySelector('[role="dialog"]');
+    expect(dialog.getAttribute('aria-modal')).toBe('true');
+    expect(dialog.getAttribute('aria-label')).toBeTruthy();
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(p.setShowLogWeightModal).toHaveBeenCalledWith(false);
+  });
+
+  it('associates every label with its control', () => {
+    const { container } = render(<LogWeightModal {...props()} />);
+    container.querySelectorAll('label[for]').forEach((label) => {
+      expect(container.querySelector('#' + label.getAttribute('for'))).toBeTruthy();
+    });
+  });
+});

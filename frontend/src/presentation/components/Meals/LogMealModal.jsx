@@ -1,7 +1,8 @@
+import { EscapeToClose } from '../../utils/EscapeToClose';
 import { Bot, Sparkles, CheckCircle, Check, X, Utensils, ChefHat, Camera } from 'lucide-react';
 
 export const LogMealModal = ({ handleAnalyzeMealPreview, handleAnalyzePhoto, handlePhotoFileSelect, handleSaveMeal, isAnalyzingMeal, isAnalyzingPhoto, isSavingMeal, mealAnalysisPreview, mealForm, mealModalMode, photoPreview, setMealForm, setMealModalMode, setPhotoBase64, setPhotoPreview, setShowLogMealModal }) => (
-  <div style={{
+  <div role="dialog" aria-modal="true" aria-label="บันทึกมื้ออาหาร" style={{
     position: 'fixed',
     inset: 0,
     background: 'rgba(15, 23, 42, 0.65)',
@@ -12,6 +13,7 @@ export const LogMealModal = ({ handleAnalyzeMealPreview, handleAnalyzePhoto, han
     zIndex: 9999,
     padding: '20px'
   }}>
+    <EscapeToClose onClose={() => setShowLogMealModal(false)} />
     <div style={{
       background: '#ffffff',
       borderRadius: '16px',
@@ -97,10 +99,10 @@ export const LogMealModal = ({ handleAnalyzeMealPreview, handleAnalyzePhoto, han
       <form onSubmit={handleSaveMeal} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
         {/* Meal Type Selector */}
         <div>
-          <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
+          <div id="meal-type-label" style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
             ประเภทมื้ออาหาร
-          </label>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
+          </div>
+          <div role="group" aria-labelledby="meal-type-label" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
             {[
               { id: 'BREAKFAST', label: 'มื้อเช้า', icon: '🍳' },
               { id: 'LUNCH', label: 'มื้อกลางวัน', icon: '🍱' },
@@ -140,7 +142,7 @@ export const LogMealModal = ({ handleAnalyzeMealPreview, handleAnalyzePhoto, han
         {/* MODE 1: PHOTO SCANNER */}
         {mealModalMode === 'photo' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '700', color: '#334155' }}>
+            <label htmlFor="logmealmodal-field-143" style={{ display: 'block', fontSize: '12.5px', fontWeight: '700', color: '#334155' }}>
               อัปโหลดหรือถ่ายภาพจานอาหาร
             </label>
 
@@ -158,7 +160,7 @@ export const LogMealModal = ({ handleAnalyzeMealPreview, handleAnalyzePhoto, han
                 gap: '8px',
                 transition: 'all 0.2s'
               }}>
-                <input
+                <input id="logmealmodal-field-143"
                   type="file"
                   accept="image/*"
                   onChange={handlePhotoFileSelect}
@@ -248,10 +250,10 @@ export const LogMealModal = ({ handleAnalyzeMealPreview, handleAnalyzePhoto, han
         {/* MODE 2: TEXT INPUT */}
         {mealModalMode === 'text' && (
           <div>
-            <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
+            <label htmlFor="logmealmodal-field-251" style={{ display: 'block', fontSize: '12.5px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
               ชื่ออาหาร / เมนูที่รับประทาน <span style={{ color: '#ef4444' }}>*</span>
             </label>
-            <textarea
+            <textarea id="logmealmodal-field-251"
               rows="2"
               required
               value={mealForm.mealDescription}
@@ -407,10 +409,10 @@ export const LogMealModal = ({ handleAnalyzeMealPreview, handleAnalyzePhoto, han
         {/* Nutrition Numerical Fields (Editable or Shimmering while Loading) */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px' }}>
           <div>
-            <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', color: '#334155', marginBottom: '4px' }}>
+            <label htmlFor="logmealmodal-field-410" style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', color: '#334155', marginBottom: '4px' }}>
               🔥 แคลอรี่ (kcal)
             </label>
-            <input
+            <input id="logmealmodal-field-410"
               type="number"
               step="1"
               min="0"
@@ -422,10 +424,10 @@ export const LogMealModal = ({ handleAnalyzeMealPreview, handleAnalyzePhoto, han
             />
           </div>
           <div>
-            <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', color: '#334155', marginBottom: '4px' }}>
+            <label htmlFor="logmealmodal-field-425" style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', color: '#334155', marginBottom: '4px' }}>
               🥩 โปรตีน (g)
             </label>
-            <input
+            <input id="logmealmodal-field-425"
               type="number"
               step="0.1"
               min="0"
@@ -437,10 +439,10 @@ export const LogMealModal = ({ handleAnalyzeMealPreview, handleAnalyzePhoto, han
             />
           </div>
           <div>
-            <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', color: '#334155', marginBottom: '4px' }}>
+            <label htmlFor="logmealmodal-field-440" style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', color: '#334155', marginBottom: '4px' }}>
               🍚 คาร์บ (g)
             </label>
-            <input
+            <input id="logmealmodal-field-440"
               type="number"
               step="0.1"
               min="0"
@@ -452,10 +454,10 @@ export const LogMealModal = ({ handleAnalyzeMealPreview, handleAnalyzePhoto, han
             />
           </div>
           <div>
-            <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', color: '#334155', marginBottom: '4px' }}>
+            <label htmlFor="logmealmodal-field-455" style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', color: '#334155', marginBottom: '4px' }}>
               🥑 ไขมัน (g)
             </label>
-            <input
+            <input id="logmealmodal-field-455"
               type="number"
               step="0.1"
               min="0"

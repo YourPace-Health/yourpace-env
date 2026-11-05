@@ -1,10 +1,12 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"youpace/config"
 	"youpace/handlers"
@@ -49,6 +51,16 @@ func main() {
 		log.Fatalf("Auto-Migration failed: %v", err)
 	}
 	log.Println("Database Auto-Migration completed successfully")
+
+	// Versioned SQL migrations (indexes, data fixes) run after AutoMigrate
+	if err := config.RunMigrations(db); err != nil {
+		log.Fatalf("Migrations failed: %v", err)
+	}
+
+	// Workout reminder emails run only when mail is explicitly enabled
+	if os.Getenv("MAIL_ENABLED") == "true" {
+		go handlers.StartReminderWorker(context.Background(), time.Minute)
+	}
 
 	// 4. Seed default equipment data
 	seedDefaultEquipments()
