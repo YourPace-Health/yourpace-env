@@ -237,6 +237,7 @@ function App() {
   const [_analyticsLoading, setAnalyticsLoading] = useState(false);
   const [milestonesList, setMilestonesList] = useState([]);
   const {
+    weightHistory,
     weeklyRecapData,
     isRecapLoading,
     showLogWeightModal,
@@ -1285,6 +1286,7 @@ function App() {
               />
             ) : (
               <ProgressView
+              weightHistory={weightHistory}
                 currentUser={currentUser}
                 getSessionToken={getSessionToken}
                 handleFetchWeeklyRecap={handleFetchWeeklyRecap}

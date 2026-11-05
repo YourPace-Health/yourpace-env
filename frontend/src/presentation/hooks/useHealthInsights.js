@@ -1,7 +1,7 @@
 import { useState } from 'react';
 
 export function useHealthInsights({ getSessionToken, setSuccessMessage, getApiUrl, loadUserData, loadProgressAnalytics, loadMilestones }) {
-  const [_weightHistory, setWeightHistory] = useState([]);
+  const [weightHistory, setWeightHistory] = useState([]);
 
   const [weeklyRecapData, setWeeklyRecapData] = useState(null);
 
@@ -105,6 +105,7 @@ export function useHealthInsights({ getSessionToken, setSuccessMessage, getApiUr
   };
 
   return {
+    weightHistory,
     weeklyRecapData,
     isRecapLoading,
     showLogWeightModal,

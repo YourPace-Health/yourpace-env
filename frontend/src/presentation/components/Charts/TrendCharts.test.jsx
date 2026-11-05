@@ -47,3 +47,17 @@ describe('TrendCharts', () => {
     expect((await screen.findByRole('alert')).textContent).toContain('ไม่สำเร็จ');
   });
 });
+
+describe('TrendCharts refresh', () => {
+  it('fetches again when refreshKey changes (e.g. after logging a weight)', async () => {
+    const calls = { n: 0 };
+    vi.stubGlobal('fetch', vi.fn(async (url) => {
+      if (url.endsWith('/health/weight/history')) calls.n += 1;
+      return new Response('[]', { status: 200 });
+    }));
+    const { rerender } = render(<TrendCharts userToken="t" refreshKey={1} />);
+    await waitFor(() => expect(calls.n).toBe(1));
+    rerender(<TrendCharts userToken="t" refreshKey={2} />);
+    await waitFor(() => expect(calls.n).toBe(2));
+  });
+});

@@ -125,6 +125,7 @@ const progressProps = (over = {}) => ({
   setShowLogWeightModal: fn(),
   setWeightForm: fn(),
   weeklyRecapData: null,
+  weightHistory: [],
   ...over
 });
 

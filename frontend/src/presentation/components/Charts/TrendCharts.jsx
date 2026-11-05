@@ -51,7 +51,7 @@ function Sparkline({ title, unit, color, series, dates, min, max, digits = 1 }) 
 }
 
 /** 14-day trends for weight, water intake and mood/energy check-ins. */
-export function TrendCharts({ userToken }) {
+export function TrendCharts({ userToken, refreshKey }) {
   const [data, setData] = useState({ weight: [], water: [], checkins: [] });
   const [failed, setFailed] = useState(false);
   const dates = useMemo(() => lastDays(DAYS), []);
@@ -73,7 +73,7 @@ export function TrendCharts({ userToken }) {
     return () => {
       cancelled = true;
     };
-  }, [userToken]);
+  }, [userToken, refreshKey]);
 
   const weight = buildSeries(data.weight, dates, (r) => r.logDate, (r) => r.weight);
   const water = buildSeries(data.water, dates, (r) => r.logDate, (r) => r.glasses);

@@ -1,7 +1,7 @@
 import { Bot, Sparkles, Flame, Check, Plus, Zap, BarChart3, Medal, Activity } from 'lucide-react';
 import { TrendCharts } from '../Charts/TrendCharts';
 
-export const ProgressView = ({ currentUser, getSessionToken, handleFetchWeeklyRecap, isRecapLoading, milestonesList, progressAnalytics, setShowLogWeightModal, setWeightForm, weeklyRecapData }) => (
+export const ProgressView = ({ weightHistory, currentUser, getSessionToken, handleFetchWeeklyRecap, isRecapLoading, milestonesList, progressAnalytics, setShowLogWeightModal, setWeightForm, weeklyRecapData }) => (
   /* VIEW 2: Health Progress, Trends & Gamification Studio */
   <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }} className="animate-fade-in">
     
@@ -130,7 +130,7 @@ export const ProgressView = ({ currentUser, getSessionToken, handleFetchWeeklyRe
 
     </div>
 
-    <TrendCharts userToken={getSessionToken()} />
+    <TrendCharts userToken={getSessionToken()} refreshKey={weightHistory} />
 
     {/* Row 2: Interactive Charts & Heatmap Grid */}
     <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '24px', alignItems: 'start' }}>
