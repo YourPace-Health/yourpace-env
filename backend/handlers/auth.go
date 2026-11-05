@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"crypto/subtle"
 	"net/http"
 	"time"
 
@@ -296,5 +297,49 @@ func VerifyMagicLink(c echo.Context) error {
 			"username": user.Username,
 			"email":    user.Email,
 		},
+	})
+}
+
+type RefreshRequest struct {
+	RefreshToken string `json:"refreshToken"`
+}
+
+// RefreshToken exchanges a valid refresh token for a new access/refresh pair.
+// The refresh token is single-use: it must match the one stored for the user and
+// is replaced on every call, so a leaked old token stops working.
+func RefreshToken(c echo.Context) error {
+	var req RefreshRequest
+	if err := c.Bind(&req); err != nil || req.RefreshToken == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": ErrInvalidRequestBody})
+	}
+
+	email, err := services.ValidateRefreshToken(req.RefreshToken)
+	if err != nil {
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "invalid or expired refresh token"})
+	}
+
+	var user models.User
+	if err := config.DB.Where("email = ?", email).First(&user).Error; err != nil ||
+		subtle.ConstantTimeCompare([]byte(user.RefreshToken), []byte(req.RefreshToken)) != 1 {
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "invalid or expired refresh token"})
+	}
+
+	accessToken, err := services.GenerateAccessToken(user.Email)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": ErrFailedToGenerateTokens})
+	}
+	refreshToken, err := services.GenerateRefreshToken(user.Email)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": ErrFailedToGenerateTokens})
+	}
+
+	user.RefreshToken = refreshToken
+	if err := config.DB.Save(&user).Error; err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": ErrFailedToGenerateTokens})
+	}
+
+	return c.JSON(http.StatusOK, map[string]string{
+		"accessToken":  accessToken,
+		"refreshToken": refreshToken,
 	})
 }

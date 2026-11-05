@@ -9,6 +9,7 @@ import (
 
 	"youpace/config"
 	"youpace/models"
+	"youpace/services"
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
@@ -72,85 +73,8 @@ func GenerateWeeklySchedule(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "no exercises in database, please seed exercises first"})
 	}
 
-	// Parse user profile equipment and limitations
-	userEquips := []string{}
-	if user.EquipmentOwned != "" {
-		parts := strings.Split(strings.ToLower(user.EquipmentOwned), ",")
-		for _, p := range parts {
-			userEquips = append(userEquips, strings.TrimSpace(p))
-		}
-	}
-	// Fallback to Bodyweight if none specified
-	if len(userEquips) == 0 {
-		userEquips = append(userEquips, "bodyweight")
-	}
-
-	userLimits := []string{}
-	if user.PhysicalLimitations != "" {
-		parts := strings.Split(strings.ToLower(user.PhysicalLimitations), ",")
-		for _, p := range parts {
-			userLimits = append(userLimits, strings.TrimSpace(p))
-		}
-	}
-
-	// Prepare suggested exercise list filtered by equipments and limitations
-	suggested := []models.Exercise{}
-	for _, ex := range exercises {
-		exEquipLower := strings.ToLower(ex.EquipmentNeeded)
-		
-		// 1. Check Equipment: Exercise must match user's owned equipment
-		hasEquipment := false
-		for _, eq := range userEquips {
-			if strings.Contains(exEquipLower, eq) || (eq == "bodyweight" && exEquipLower == "bodyweight") {
-				hasEquipment = true
-				break
-			}
-		}
-		if !hasEquipment {
-			continue // Skip if user doesn't have the needed equipment
-		}
-
-		// 2. Check Physical Limitations: Avoid exercises that strain injured muscle groups
-		isSafe := true
-		exMuscleLower := strings.ToLower(ex.MuscleGroup)
-		for _, limit := range userLimits {
-			if strings.Contains(limit, "knee") || strings.Contains(limit, "เข่า") {
-				if exMuscleLower == "legs" || strings.Contains(strings.ToLower(ex.Name), "squat") || strings.Contains(strings.ToLower(ex.Name), "lunge") || strings.Contains(strings.ToLower(ex.Name), "burpee") {
-					isSafe = false
-					break
-				}
-			}
-			if strings.Contains(limit, "back") || strings.Contains(limit, "หลัง") {
-				if exMuscleLower == "back" {
-					isSafe = false
-					break
-				}
-			}
-			if strings.Contains(limit, "shoulder") || strings.Contains(limit, "ไหล่") {
-				if exMuscleLower == "shoulders" || strings.Contains(strings.ToLower(ex.Name), "shoulder") {
-					isSafe = false
-					break
-				}
-			}
-			if strings.Contains(limit, "ankle") || strings.Contains(limit, "ข้อเท้า") {
-				if strings.Contains(strings.ToLower(ex.Name), "burpee") || strings.Contains(strings.ToLower(ex.Name), "lunge") {
-					isSafe = false
-					break
-				}
-			}
-		}
-		
-		if !isSafe {
-			continue // Skip unsafe exercise
-		}
-
-		suggested = append(suggested, ex)
-	}
-
-	// If all exercises are filtered out, fallback to all exercises as a safety net
-	if len(suggested) == 0 {
-		suggested = exercises
-	}
+	// Filter by the user's equipment and physical limitations
+	suggested := services.FilterSuggestedExercises(exercises, user.EquipmentOwned, user.PhysicalLimitations)
 
 	// 2. Determine target workout days for the next 7 days (e.g., 3 days per week)
 	daysToGenerate := []int{1, 3, 5} // Mon, Wed, Fri (offset from today)
@@ -168,50 +92,18 @@ func GenerateWeeklySchedule(c echo.Context) error {
 			continue // Skip if already planned
 		}
 
-		// Customize title based on fitness goals
-		title := "General Fitness Routine"
-		intensity := "MODERATE"
-		
-		switch user.FitnessGoal {
-		case "LOSE_WEIGHT":
-			title = "Fat Burn & Cardio Session"
-			intensity = "MODERATE"
-		case "GAIN_MUSCLE":
-			title = "Strength & Muscle Building"
-			intensity = "INTENSE"
-		case "IMPROVE_ENDURANCE":
-			title = "Stamina & Cardio Endurance"
-			intensity = "MODERATE"
-		case "MAINTAIN_HEALTH":
-			title = "Active Health Recovery"
-			intensity = "LIGHT"
-		}
+		title, intensity := services.GoalPlan(user.FitnessGoal)
 
 		// Assign 3 suggested exercises to this workout plan
-		selectedEx := []models.Exercise{}
-		var totalBurnRate float64 = 0.0
-		for i := 0; i < 3; i++ {
-			if len(suggested) > 0 {
-				idx := rand.Intn(len(suggested))
-				ex := suggested[idx]
-				selectedEx = append(selectedEx, ex)
-				if ex.BurnRate > 0 {
-					totalBurnRate += ex.BurnRate
-				}
-			}
-		}
-
-		var avgBurnRate float64 = 6.0
-		if len(selectedEx) > 0 && totalBurnRate > 0 {
-			avgBurnRate = totalBurnRate / float64(len(selectedEx))
-		}
-		estimatedBurnedCalories := 30.0 * avgBurnRate
+		const planMinutes = 30
+		selectedEx := services.PickExercises(suggested, 3, rand.Intn)
+		estimatedBurnedCalories := services.EstimatePlanCalories(selectedEx, planMinutes)
 
 		schedule := models.WorkoutSchedule{
 			UserID:          userID,
 			Title:           title,
 			ScheduledDate:   workoutDate,
-			DurationMinutes: 30, // Default 30 mins
+			DurationMinutes: planMinutes,
 			Status:          "PENDING",
 			TargetIntensity: intensity,
 			BurnedCalories:  estimatedBurnedCalories,

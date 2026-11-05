@@ -82,3 +82,16 @@ func ValidateToken(tokenStr string) (*TokenClaims, error) {
 
 	return claims, nil
 }
+
+// ValidateRefreshToken verifies a refresh JWT and returns the email it was issued to.
+// Access, magic-link and any other token types are rejected.
+func ValidateRefreshToken(tokenStr string) (string, error) {
+	claims, err := ValidateToken(tokenStr)
+	if err != nil {
+		return "", err
+	}
+	if claims.Type != "refresh" {
+		return "", errors.New("not a refresh token")
+	}
+	return claims.Email, nil
+}

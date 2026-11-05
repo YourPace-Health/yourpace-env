@@ -39,7 +39,7 @@ export class AuthApiDataSource {
         createdAt: new Date().toISOString()
       };
 
-      const session = { user: mockUser, token: data.accessToken };
+      const session = { user: mockUser, token: data.accessToken, refreshToken: data.refreshToken };
 
       // จัดการ Stay Signed In
       if (staySignedIn) {
@@ -144,7 +144,7 @@ export class AuthApiDataSource {
                 createdAt: new Date().toISOString()
               };
 
-              const session = { user, token: data.accessToken };
+              const session = { user, token: data.accessToken, refreshToken: data.refreshToken };
               localStorage.setItem(this.STORAGE_KEY, JSON.stringify(session));
               resolve(session);
             } catch (err) {
@@ -208,7 +208,7 @@ export class AuthApiDataSource {
         createdAt: new Date().toISOString()
       };
 
-      const session = { user: mockUser, token: data.accessToken };
+      const session = { user: mockUser, token: data.accessToken, refreshToken: data.refreshToken };
 
       // บันทึก session สำหรับ Stay Signed In
       localStorage.setItem(this.STORAGE_KEY, JSON.stringify(session));
