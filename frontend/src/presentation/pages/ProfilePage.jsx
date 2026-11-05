@@ -13,6 +13,7 @@ import {
   Zap
 } from 'lucide-react';
 import { ProfileApiDataSource } from '../../data/datasources/ProfileApiDataSource';
+import { ReminderSettings } from '../components/Profile/ReminderSettings';
 
 const profileDataSource = new ProfileApiDataSource();
 
@@ -879,6 +880,8 @@ export function ProfilePage({ userToken, onBackToDashboard, onProfileUpdateSucce
 
         </form>
       )}
+
+      <ReminderSettings userToken={userToken} dataSource={profileDataSource} />
     </div>
   );
 }
