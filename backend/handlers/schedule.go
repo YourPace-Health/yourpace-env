@@ -268,55 +268,8 @@ func LogCustomBurnWorkout(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to log custom burn activity"})
 	}
 
-	if req.Description != "" {
-		lines := strings.Split(req.Description, "\n")
-		for _, line := range lines {
-			line = strings.TrimSpace(line)
-			if line == "" || (!strings.HasPrefix(line, "•") && !strings.HasPrefix(line, "-") && !strings.HasPrefix(line, "*")) {
-				continue
-			}
-			lineClean := strings.TrimLeft(line, "•-* \t")
-
-			if strings.HasPrefix(lineClean, "ประโยชน์") ||
-				strings.HasPrefix(lineClean, "เผาผลาญ") ||
-				strings.HasPrefix(lineClean, "#") ||
-				strings.HasPrefix(lineClean, "คำแนะนำ") {
-				continue
-			}
-
-			parts := strings.Split(lineClean, "-")
-			if len(parts) == 0 {
-				continue
-			}
-			exName := strings.TrimSpace(parts[0])
-			exName = strings.Trim(exName, "()[]{}*# \t")
-
-			if exName == "" || strings.EqualFold(exName, "อุปกรณ์") || strings.EqualFold(exName, "กล้ามเนื้อ") {
-				continue
-			}
-
-			var ex models.Exercise
-			if err := config.DB.Where("LOWER(name) = ?", strings.ToLower(exName)).First(&ex).Error; err != nil {
-				ex = models.Exercise{
-					Name:            exName,
-					Description:     exName,
-					MuscleGroup:     "Full Body",
-					EquipmentNeeded: "Bodyweight",
-					BurnRate:        6.0,
-					DifficultyLevel: "BEGINNER",
-				}
-				config.DB.Create(&ex)
-			}
-
-			detail := models.WorkoutScheduleDetail{
-				WorkoutScheduleID: schedule.ScheduleID,
-				ExerciseID:        ex.ExerciseID,
-				Sets:              3,
-				Reps:              12,
-				DurationSeconds:   45,
-			}
-			config.DB.Create(&detail)
-		}
+	for _, exName := range services.ExtractExerciseNames(req.Description) {
+		saveScheduleExercise(schedule.ScheduleID, exName)
 	}
 
 	// Trigger Milestone Check
@@ -416,8 +369,14 @@ func DeleteSchedule(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid schedule ID"})
 	}
 
-	config.DB.Where("workout_schedule_id = ?", scheduleID).Delete(&models.WorkoutScheduleDetail{})
-	if err := config.DB.Where("schedule_id = ? AND user_id = ?", scheduleID, userID).Delete(&models.WorkoutSchedule{}).Error; err != nil {
+	// Only the owner may delete a schedule or its exercise details.
+	var schedule models.WorkoutSchedule
+	if err := config.DB.Where("schedule_id = ? AND user_id = ?", scheduleID, userID).First(&schedule).Error; err != nil {
+		return c.JSON(http.StatusNotFound, map[string]string{"error": "schedule not found"})
+	}
+
+	config.DB.Where("workout_schedule_id = ?", schedule.ScheduleID).Delete(&models.WorkoutScheduleDetail{})
+	if err := config.DB.Delete(&schedule).Error; err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to delete schedule"})
 	}
 

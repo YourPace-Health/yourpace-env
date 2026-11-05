@@ -95,3 +95,8 @@ func TestSendDueRemindersSkipsIneligible(t *testing.T) {
 		t.Errorf("sent %d, want 0; mails: %+v", n, *sent)
 	}
 }
+
+func todayUTC() time.Time {
+	n := time.Now()
+	return time.Date(n.Year(), n.Month(), n.Day(), 0, 0, 0, 0, time.UTC)
+}

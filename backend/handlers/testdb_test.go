@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
+	"sort"
 	"strings"
 	"testing"
 
@@ -25,10 +27,11 @@ import (
 //
 // Without it these tests are skipped.
 var testTables = []interface{}{
-	&models.User{}, &models.UserSetting{}, &models.Exercise{}, &models.FavExercise{},
-	&models.EmotionalCheckIn{}, &models.WorkoutSchedule{}, &models.WorkoutScheduleDetail{},
-	&models.MealLog{}, &models.Milestone{}, &models.Equipment{}, &models.UserGoogleToken{},
-	&models.UserHealthLog{}, &models.WaterLog{}, &models.WeightLog{}, &models.ChatMessage{},
+	// children before parents: tables are emptied in this order
+	&models.WorkoutScheduleDetail{}, &models.FavExercise{}, &models.WorkoutSchedule{}, &models.Exercise{},
+	&models.UserSetting{}, &models.EmotionalCheckIn{}, &models.MealLog{}, &models.Milestone{},
+	&models.Equipment{}, &models.UserGoogleToken{}, &models.UserHealthLog{}, &models.WaterLog{},
+	&models.WeightLog{}, &models.ChatMessage{}, &models.User{},
 }
 
 func setupTestDB(t *testing.T) {
@@ -74,17 +77,40 @@ func createUser(t *testing.T, email, password string, confirmed bool) models.Use
 // middleware having authenticated that user.
 func call(t *testing.T, h echo.HandlerFunc, method, body, email string) *httptest.ResponseRecorder {
 	t.Helper()
+	return callWith(t, h, method, body, email, nil)
+}
+
+// callWith is call plus path parameters (for routes like /schedules/:id). The handler is
+// mounted on a real route so Echo fills the params exactly as it does in production.
+func callWith(t *testing.T, h echo.HandlerFunc, method, body, email string, params map[string]string) *httptest.ResponseRecorder {
+	t.Helper()
+	names := make([]string, 0, len(params))
+	for name := range params {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
+	route, target := "/t", "/t"
+	for _, name := range names {
+		route += "/:" + name
+		target += "/" + url.PathEscape(params[name])
+	}
+
 	e := echo.New()
-	req := httptest.NewRequest(method, "/", strings.NewReader(body))
+	setEmail := func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			if email != "" {
+				c.Set("email", email)
+			}
+			return next(c)
+		}
+	}
+	e.Add(method, route, h, setEmail)
+
+	req := httptest.NewRequest(method, target, strings.NewReader(body))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
-	c := e.NewContext(req, rec)
-	if email != "" {
-		c.Set("email", email)
-	}
-	if err := h(c); err != nil {
-		e.HTTPErrorHandler(err, c)
-	}
+	e.ServeHTTP(rec, req)
 	return rec
 }
 
