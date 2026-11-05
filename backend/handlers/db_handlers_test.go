@@ -147,3 +147,22 @@ func TestAuthenticatedHandlersRejectMissingUser(t *testing.T) {
 	wantStatus(t, call(t, GetWeightHistory, http.MethodGet, "", ""), http.StatusNotFound)
 	wantStatus(t, call(t, CheckIn, http.MethodPost, `{"energyLevel":3,"emotionalState":3}`, ""), http.StatusNotFound)
 }
+
+func TestUpdateUserSettingCanTurnNotificationsOffOnFirstSave(t *testing.T) {
+	setupTestDB(t)
+	createUser(t, "s@example.com", "x", true)
+
+	body := `{"notificationsEnabled":false,"pushEnabled":false,"defaultRemindDaysBefore":0,"defaultNotifyTime":"07:30","timezone":"Asia/Bangkok","skills":""}`
+	wantStatus(t, call(t, UpdateUserSetting, http.MethodPut, body, "s@example.com"), http.StatusOK)
+
+	var got models.UserSetting
+	rec := call(t, GetUserSetting, http.MethodGet, "", "s@example.com")
+	wantStatus(t, rec, http.StatusOK)
+	decode(t, rec, &got)
+	if got.NotificationsEnabled || got.PushEnabled {
+		t.Errorf("false values must be stored, got %+v", got)
+	}
+	if got.DefaultNotifyTime != "07:30" {
+		t.Errorf("notify time = %q, want 07:30", got.DefaultNotifyTime)
+	}
+}
