@@ -63,6 +63,15 @@ docker-compose up -d --build
 *   **Redis Cache:** `localhost:6380` (Internal port `6379`)
 *   **Jenkins CI Server:** [http://localhost:8085](http://localhost:8085)
 
+
+### 4. Database backup & restore
+With the compose stack running:
+```bash
+./scripts/backup-postgres.sh                                  # writes backups/youpace-<timestamp>.sql, keeps the newest 14
+./scripts/backup-postgres.sh --restore backups/<file>.sql      # restore (drops and recreates objects)
+```
+On Windows use `.\scripts\backup-postgres.ps1` (`-Restore <file>`). The `backups/` folder is git-ignored because it contains user data.
+
 ---
 
 ## 🔄 CI/CD & Code Quality Integration

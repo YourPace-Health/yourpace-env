@@ -51,3 +51,6 @@ backend/uploads/
 .DS_Store
 Thumbs.db
 !.env.example
+
+# Database backups (contain user data)
+backups/
