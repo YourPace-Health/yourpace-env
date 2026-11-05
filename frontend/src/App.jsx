@@ -35,6 +35,7 @@ import {
 import { AuthPage } from './presentation/pages/AuthPage';
 import { LandingPage } from './presentation/pages/LandingPage';
 import { ProfilePage } from './presentation/pages/ProfilePage';
+import { useHistoryRoute } from './presentation/hooks/useHistoryRoute';
 import { useAuthViewModel } from './presentation/hooks/useAuthViewModel';
 import { MentorApiDataSource } from './data/datasources/MentorApiDataSource';
 import { AuthApiDataSource } from './data/datasources/AuthApiDataSource';
@@ -74,8 +75,8 @@ function App() {
     return null;
   };
 
-  // Simple local state routing: 'landing' | 'auth' | 'profile'
-  const [currentRoute, setCurrentRoute] = useState('landing');
+  // URL-synced routing: 'landing' | 'auth' | 'dashboard' | 'profile'
+  const [currentRoute, setCurrentRoute] = useHistoryRoute();
 
   // Profile status
   const [userProfile, setUserProfile] = useState(null);
