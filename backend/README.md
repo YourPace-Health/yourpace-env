@@ -69,3 +69,11 @@ The server will boot up and automatically run DB migrations. By default, it runs
 *   `GET /health` - Liveness check (no auth).
 *   `GET /api/water/today` - View water log for the current day.
 *   `POST /api/health/weight` - Log a new weight entry.
+
+## 🗄️ Database migrations & tests
+*   GORM `AutoMigrate` creates tables/columns; versioned SQL for everything else lives in `config/migrations/NNNN_name.sql` and is applied once, in order, at startup (tracked in `schema_migrations`). Add a new numbered file instead of editing an old one.
+*   DB-backed tests need a throwaway Postgres and are skipped without one:
+```bash
+docker run -d --name yp-test-pg -e POSTGRES_PASSWORD=test -e POSTGRES_DB=youpace_test -p 55432:5432 postgres:15-alpine
+TEST_DATABASE_URL="host=localhost port=55432 user=postgres password=test dbname=youpace_test sslmode=disable" go test ./...
+```

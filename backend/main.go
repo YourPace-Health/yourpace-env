@@ -50,6 +50,11 @@ func main() {
 	}
 	log.Println("Database Auto-Migration completed successfully")
 
+	// Versioned SQL migrations (indexes, data fixes) run after AutoMigrate
+	if err := config.RunMigrations(db); err != nil {
+		log.Fatalf("Migrations failed: %v", err)
+	}
+
 	// 4. Seed default equipment data
 	seedDefaultEquipments()
 
