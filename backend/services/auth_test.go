@@ -83,3 +83,27 @@ func TestJWTTokenGenerationAndValidation(t *testing.T) {
 		t.Errorf("Expected error on expired token")
 	}
 }
+
+func TestValidateRefreshToken(t *testing.T) {
+	email := "refresh@yourpace.com"
+
+	refresh, _ := services.GenerateRefreshToken(email)
+	got, err := services.ValidateRefreshToken(refresh)
+	if err != nil || got != email {
+		t.Fatalf("got %q, %v; want %q", got, err, email)
+	}
+
+	access, _ := services.GenerateAccessToken(email)
+	if _, err := services.ValidateRefreshToken(access); err == nil {
+		t.Error("access token must not be accepted as a refresh token")
+	}
+
+	magic, _ := services.GenerateMagicToken(email)
+	if _, err := services.ValidateRefreshToken(magic); err == nil {
+		t.Error("magic token must not be accepted as a refresh token")
+	}
+
+	if _, err := services.ValidateRefreshToken("garbage"); err == nil {
+		t.Error("malformed token must be rejected")
+	}
+}

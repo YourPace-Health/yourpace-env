@@ -81,6 +81,7 @@ func main() {
 	authGroup.POST("/login", handlers.Login)
 	authGroup.POST("/verify-otp", handlers.VerifyOTP)
 	authGroup.POST("/google", handlers.GoogleLogin)
+	authGroup.POST("/refresh", handlers.RefreshToken)
 	authGroup.POST("/request-otp", handlers.RequestOTP)
 	authGroup.POST("/magic-link", handlers.RequestMagicLink)
 	authGroup.POST("/verify-magic-link", handlers.VerifyMagicLink)
