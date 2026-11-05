@@ -18,12 +18,12 @@ export function LoginForm({ onSubmit, isLoading, onForgotPasswordClick }) {
     <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px', width: '100%' }}>
       {/* Email Input */}
       <div>
-        <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: 'var(--text-dark)', marginBottom: '8px' }}>
+        <label htmlFor="loginform-field-21" style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: 'var(--text-dark)', marginBottom: '8px' }}>
           อีเมลการใช้งาน
         </label>
         <div style={{ position: 'relative' }}>
           <Mail size={18} color="#94a3b8" style={{ position: 'absolute', left: '14px', top: '14px' }} />
-          <input
+          <input id="loginform-field-21"
             type="email"
             required
             value={email}
@@ -47,7 +47,7 @@ export function LoginForm({ onSubmit, isLoading, onForgotPasswordClick }) {
       {/* Password Input */}
       <div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-          <label style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-dark)' }}>
+          <label htmlFor="loginform-field-50" style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-dark)' }}>
             รหัสผ่าน
           </label>
           <button
@@ -67,7 +67,7 @@ export function LoginForm({ onSubmit, isLoading, onForgotPasswordClick }) {
         </div>
         <div style={{ position: 'relative' }}>
           <Lock size={18} color="#94a3b8" style={{ position: 'absolute', left: '14px', top: '14px' }} />
-          <input
+          <input id="loginform-field-50"
             type={showPassword ? "text" : "password"}
             required
             value={password}

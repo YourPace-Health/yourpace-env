@@ -1,7 +1,8 @@
+import { EscapeToClose } from '../../utils/EscapeToClose';
 import { Bot, Sparkles, Calendar } from 'lucide-react';
 
 export const N8nPlanModal = ({ calendarEvents, handlePlanFreeTimeWithN8N, isCalendarConnected, isN8nPlanning, n8nCustomNote, n8nDaysCount, setN8nCustomNote, setN8nDaysCount, setShowN8nPlanModal }) => (
-  <div style={{
+  <div role="dialog" aria-modal="true" aria-label="วางแผนออกกำลังกายด้วย AI" style={{
     position: 'fixed',
     top: 0,
     left: 0,
@@ -18,6 +19,7 @@ export const N8nPlanModal = ({ calendarEvents, handlePlanFreeTimeWithN8N, isCale
     padding: '16px',
     overflowY: 'auto'
   }}>
+    <EscapeToClose onClose={() => setShowN8nPlanModal(false)} />
     <div style={{
       background: '#ffffff',
       borderRadius: '20px',
@@ -88,7 +90,7 @@ export const N8nPlanModal = ({ calendarEvents, handlePlanFreeTimeWithN8N, isCale
 
       {/* Number of workout days selector */}
       <div style={{ marginBottom: '18px' }}>
-        <label style={{ fontSize: '13.5px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '8px' }}>
+        <label htmlFor="n8nplanmodal-field-121" style={{ fontSize: '13.5px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '8px' }}>
           🎯 ต้องการให้จัดตารางออกกำลังกายกี่วันในสัปดาห์นี้?
         </label>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
@@ -118,13 +120,13 @@ export const N8nPlanModal = ({ calendarEvents, handlePlanFreeTimeWithN8N, isCale
 
       {/* Custom Notes / Constraints textarea */}
       <div style={{ marginBottom: '18px' }}>
-        <label style={{ fontSize: '13.5px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '6px' }}>
+        <label htmlFor="n8nplanmodal-field-121" style={{ fontSize: '13.5px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '6px' }}>
           📝 แนบเงื่อนไขหรือคำขอพิเศษเพิ่มเติมให้ AI (Optional)
         </label>
         <p style={{ fontSize: '12px', color: '#64748b', margin: '0 0 8px 0' }}>
           ระบุวันที่ติดธุระ วันที่ต้องการงด หรือช่วงเวลาที่ต้องการเน้น เช่น วันเสาร์ไม่สะดวก, ขอเน้นช่วงเช้า
         </p>
-        <textarea
+        <textarea id="n8nplanmodal-field-121"
           value={n8nCustomNote}
           onChange={(e) => setN8nCustomNote(e.target.value)}
           placeholder="เช่น: วันเสาร์ติดงานทั้งวันไม่สะดวกออกกำลังกาย, ขอเน้นช่วงเช้าก่อน 08:00 เท่านั้น, วันพุธขอแบบเบาๆ ฯลฯ"

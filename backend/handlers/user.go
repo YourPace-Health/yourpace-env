@@ -272,6 +272,19 @@ func UpdateUserSetting(c echo.Context) error {
 	if err := config.DB.Save(&setting).Error; err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to save setting"})
 	}
+	// On the first save GORM replaces zero values (false, 0) with the column defaults,
+	// so a user could never switch notifications off. Write those fields explicitly.
+	// (the insert also writes the default back into the struct, so use the request values.)
+	if err := config.DB.Model(&setting).Updates(map[string]interface{}{
+		"notifications_enabled":      req.NotificationsEnabled,
+		"push_enabled":               req.PushEnabled,
+		"default_remind_days_before": req.DefaultRemindDaysBefore,
+	}).Error; err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to save setting"})
+	}
+	setting.NotificationsEnabled = req.NotificationsEnabled
+	setting.PushEnabled = req.PushEnabled
+	setting.DefaultRemindDaysBefore = req.DefaultRemindDaysBefore
 
 	return c.JSON(http.StatusOK, setting)
 }

@@ -1,3 +1,4 @@
+import { clickable } from '../utils/a11y';
 import { ArrowRight, Bot, Sparkles, TrendingUp, Target, Calendar, Clock, Heart, Users, Smile, Meh, Frown, BatteryCharging, Dumbbell } from 'lucide-react';
 
 // Marketing landing page shown to visitors who are not logged in
@@ -15,7 +16,7 @@ export const LandingPage = ({
   <div className="app-container">
     {/* Navigation Bar */}
     <header className="navbar animate-fade-in">
-      <div className="logo-container" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
+      <div className="logo-container" {...clickable(() => window.scrollTo({ top: 0, behavior: 'smooth' }))}>
         <div className="logo-badge">yP</div>
         <span className="logo-text">yourPace</span>
       </div>
@@ -56,7 +57,7 @@ export const LandingPage = ({
       </div>
 
       <div className="hero-visual">
-        <div className="hero-card" onClick={() => onGetStarted()}>
+        <div className="hero-card" {...clickable(() => onGetStarted())}>
           <div className="card-icon-wrapper icon-green">
             <Bot size={28} />
           </div>
@@ -66,7 +67,7 @@ export const LandingPage = ({
           </div>
         </div>
 
-        <div className="hero-card" onClick={() => onGetStarted()}>
+        <div className="hero-card" {...clickable(() => onGetStarted())}>
           <div className="card-icon-wrapper icon-blue">
             <TrendingUp size={28} />
           </div>
@@ -76,7 +77,7 @@ export const LandingPage = ({
           </div>
         </div>
 
-        <div className="hero-card" onClick={() => onGetStarted()}>
+        <div className="hero-card" {...clickable(() => onGetStarted())}>
           <div className="card-icon-wrapper icon-pink">
             <Target size={28} />
           </div>
@@ -110,7 +111,7 @@ export const LandingPage = ({
               return (
                 <div
                   key={eq.id}
-                  onClick={() => handleEquipmentToggle(eq.id)}
+                  {...clickable(() => handleEquipmentToggle(eq.id))}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -284,7 +285,7 @@ export const LandingPage = ({
                 </p>
                 <div style={{ borderTop: '1px solid #edf2f7', marginTop: '12px', paddingTop: '8px', fontSize: '12px', color: 'var(--text-muted)', display: 'flex', justifyContent: 'space-between' }}>
                   <span>อุปกรณ์ที่เลือก: {selectedEquipment.map(id => equipmentOptions.find(e => e.id === id)?.icon).join(' ')}</span>
-                  <span style={{ color: 'var(--primary)', cursor: 'pointer', fontWeight: '600' }} onClick={() => onGetStarted()}>บันทึกแผนและเริ่มใช้งานจริง →</span>
+                  <span style={{ color: 'var(--primary)', cursor: 'pointer', fontWeight: '600' }} {...clickable(() => onGetStarted())}>บันทึกแผนและเริ่มใช้งานจริง →</span>
                 </div>
               </div>
             )}
@@ -385,7 +386,7 @@ export const LandingPage = ({
 
       <div className="footer-grid">
         <div className="footer-brand">
-          <div className="logo-container" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
+          <div className="logo-container" {...clickable(() => window.scrollTo({ top: 0, behavior: 'smooth' }))}>
             <div className="logo-badge">yP</div>
             <span className="logo-text">yourPace</span>
           </div>

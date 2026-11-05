@@ -21,18 +21,22 @@ The codebase is organized into layers to decouple business logic from the UI and
 ```text
 frontend/src/
 ├── data/
-│   ├── datasources/       # Direct API/Network connections (e.g., MealApiDataSource.js)
-│   └── repositories/      # Concrete repository implementations mapping data structures
-├── domain/
-│   ├── entities/          # Core models representing business data structures (e.g., User.js)
-│   ├── repositories/      # Repository interface definitions
-│   └── usecases/          # Independent business workflows (e.g., LoginWithGoogleUseCase.js)
+│   ├── datasources/       # API/Network connections (Auth, Meal, Mentor, Profile)
+│   ├── repositories/      # Concrete repository implementations
+│   ├── authFetch.js       # fetch wrapper: renews the access token once on 401
+│   └── warmupCooldownData.js
+├── domain/                # entities, repository interfaces, use cases (login flows)
 ├── presentation/
-│   ├── components/        # Reusable UI widgets and layout blocks (Auth forms, cards)
-│   ├── hooks/             # Custom React hooks (ViewModel bridges)
-│   └── pages/             # Layout templates representing screens (AuthPage.jsx, ProfilePage.jsx)
-├── App.jsx                # Application root with routing configuration
-└── main.jsx               # Entry point mounting React to the DOM
+│   ├── components/
+│   │   ├── Auth/ Chat/ Charts/ Formatting/ Health/ Meals/ Profile/ Workout/
+│   │   └── Dashboard/     # SchedulesView, NutritionView, ProgressView (the dashboard tabs)
+│   ├── hooks/             # state + handlers per feature: useMentorChat, useMealTracker,
+│   │                      #   useHealthInsights, useGoogleCalendar, useBurnLogger,
+│   │                      #   useWarmupGuide, useWaterTracker, useHistoryRoute
+│   ├── pages/             # AuthPage, ProfilePage, LandingPage
+│   └── utils/             # a11y helpers (clickable, Escape-to-close)
+├── App.jsx                # wires hooks to views, session loading, schedule actions
+└── main.jsx               # entry point (installs the auth-refresh fetch wrapper)
 ```
 
 ---
@@ -68,3 +72,11 @@ To create an optimized production build bundle:
 npm run build
 ```
 This outputs assets into the `dist/` directory, which can then be served by web servers like Nginx or deployed directly to CDNs.
+
+## ✅ Quality checks
+```bash
+npm run lint   # ESLint incl. jsx-a11y
+npm test       # Vitest (hooks, components, helpers)
+npm run build
+```
+`.npmrc` sets `legacy-peer-deps` because `eslint-plugin-jsx-a11y` has not declared ESLint 10 support yet.

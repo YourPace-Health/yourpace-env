@@ -47,3 +47,27 @@ describe('WarmupCooldownModal', () => {
     expect(p.setShowWarmupModal).toHaveBeenCalledWith(false);
   });
 });
+
+describe('WarmupCooldownModal accessibility', () => {
+  it('is a labelled modal dialog', () => {
+    const { container } = render(<WarmupCooldownModal {...props()} />);
+    const dialog = container.querySelector('[role="dialog"]');
+    expect(dialog.getAttribute('aria-modal')).toBe('true');
+    expect(dialog.getAttribute('aria-label')).toBe('Test workout');
+  });
+
+  it('closes on Escape and on a backdrop click, but not on a click inside the panel', () => {
+    const p = props();
+    const { container } = render(<WarmupCooldownModal {...p} />);
+
+    fireEvent.click(container.querySelector('[role="dialog"]'));
+    expect(p.setShowWarmupModal).not.toHaveBeenCalled();
+
+    fireEvent.click(container.querySelector('[role="presentation"]'));
+    expect(p.setShowWarmupModal).toHaveBeenCalledWith(false);
+
+    p.setShowWarmupModal.mockClear();
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(p.setShowWarmupModal).toHaveBeenCalledWith(false);
+  });
+});
