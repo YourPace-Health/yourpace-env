@@ -33,6 +33,7 @@ import { LogBurnModal } from './presentation/components/Workout/LogBurnModal';
 import { LogMealModal } from './presentation/components/Meals/LogMealModal';
 import { LogWeightModal } from './presentation/components/Health/LogWeightModal';
 import { N8nPlanModal } from './presentation/components/Workout/N8nPlanModal';
+import { TrendCharts } from './presentation/components/Charts/TrendCharts';
 import { WarmupCooldownModal } from './presentation/components/Workout/WarmupCooldownModal';
 import { ChatWidget } from './presentation/components/Chat/ChatWidget';
 import { LandingPage } from './presentation/pages/LandingPage';
@@ -3733,6 +3734,8 @@ function App() {
                   </div>
 
                 </div>
+
+                <TrendCharts userToken={getSessionToken()} />
 
                 {/* Row 2: Interactive Charts & Heatmap Grid */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '24px', alignItems: 'start' }}>
