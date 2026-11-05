@@ -64,6 +64,9 @@ docker-compose up -d --build
 *   **Jenkins CI Server:** [http://localhost:8085](http://localhost:8085)
 
 
+### Deploying and account setup
+Step-by-step instructions for Render, Vercel, Google OAuth, Jenkins and reminder emails are in [docs/SETUP-CHECKLIST.md](docs/SETUP-CHECKLIST.md).
+
 ### 4. Database backup & restore
 With the compose stack running:
 ```bash
