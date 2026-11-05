@@ -4,6 +4,8 @@ import { useMealTracker } from './presentation/hooks/useMealTracker';
 import { useHealthInsights } from './presentation/hooks/useHealthInsights';
 import { useGoogleCalendar } from './presentation/hooks/useGoogleCalendar';
 import { useBurnLogger } from './presentation/hooks/useBurnLogger';
+import { useWarmupGuide } from './presentation/hooks/useWarmupGuide';
+import { useWaterTracker } from './presentation/hooks/useWaterTracker';
 import { clickable } from './presentation/utils/a11y';
 import { API_BASE_URL } from './config/api';
 import {
@@ -60,7 +62,6 @@ import { useAuthViewModel } from './presentation/hooks/useAuthViewModel';
 import { MentorApiDataSource } from './data/datasources/MentorApiDataSource';
 import { AuthApiDataSource } from './data/datasources/AuthApiDataSource';
 import { MealApiDataSource } from './data/datasources/MealApiDataSource';
-import { detectWorkoutMuscleCategory } from './data/warmupCooldownData';
 
 const mentorApiDataSource = new MentorApiDataSource();
 const authDataSource = new AuthApiDataSource();
@@ -201,53 +202,27 @@ function App() {
   const [n8nDaysCount, setN8nDaysCount] = useState(3);
   const [workoutTab, setWorkoutTab] = useState('plan'); // 'plan' | 'history'
 
-  // Warm-up & Cool-down Guide Modal States
-  const [showWarmupModal, setShowWarmupModal] = useState(false);
-  const [warmupSelectedTab, setWarmupSelectedTab] = useState('warmup'); // 'warmup' | 'cooldown'
-  const [warmupCategory, setWarmupCategory] = useState('UPPER_BODY'); // 'UPPER_BODY' | 'LOWER_BODY' | 'CORE_CARDIO'
-  const [warmupModalTitle, setWarmupModalTitle] = useState('');
-  const [completedWarmupIds, setCompletedWarmupIds] = useState(new Set());
+  const {
+    showWarmupModal,
+    setShowWarmupModal,
+    warmupSelectedTab,
+    setWarmupSelectedTab,
+    warmupCategory,
+    setWarmupCategory,
+    warmupModalTitle,
+    completedWarmupIds,
+    setCompletedWarmupIds,
+    handleOpenWarmupGuide,
+    handleToggleWarmupCheck,
+  } = useWarmupGuide();
 
-  const handleOpenWarmupGuide = (title = '', description = '', defaultTab = 'warmup') => {
-    const detectedCategory = detectWorkoutMuscleCategory(title, description);
-    setWarmupCategory(detectedCategory);
-    setWarmupModalTitle(title);
-    setWarmupSelectedTab(defaultTab);
-    setShowWarmupModal(true);
-  };
-
-  const handleToggleWarmupCheck = (exerciseId) => {
-    setCompletedWarmupIds(prev => {
-      const next = new Set(prev);
-      if (next.has(exerciseId)) {
-        next.delete(exerciseId);
-      } else {
-        next.add(exerciseId);
-      }
-      return next;
-    });
-  };
-
-  // Water intake state in glasses & target (fetched from backend API)
-  const [waterGlasses, setWaterGlasses] = useState(0);
-  const [targetWaterGlasses, setTargetWaterGlasses] = useState(10);
-
-
-  const handleWaterGlassesChange = async (newCount) => {
-    const count = Math.max(0, newCount);
-    setWaterGlasses(count);
-    try {
-      const updated = await authDataSource.updateTodayWaterLog(count);
-      if (updated) {
-        setWaterGlasses(updated.glasses);
-        if (updated.targetGlasses) {
-          setTargetWaterGlasses(updated.targetGlasses);
-        }
-      }
-    } catch (err) {
-      console.error("Failed to update water log via API:", err);
-    }
-  };
+  const {
+    waterGlasses,
+    setWaterGlasses,
+    targetWaterGlasses,
+    setTargetWaterGlasses,
+    handleWaterGlassesChange,
+  } = useWaterTracker({ authDataSource });
 
   // Check-in simulator states (for landing page demo)
   const [checkinStatus, setCheckinStatus] = useState(null);
