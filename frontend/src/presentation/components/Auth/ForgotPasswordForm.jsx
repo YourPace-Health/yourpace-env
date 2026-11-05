@@ -50,12 +50,12 @@ export function ForgotPasswordForm({ onSubmit, isLoading, onBackToLoginClick }) 
 
       {/* Email Input */}
       <div>
-        <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: 'var(--text-dark)', marginBottom: '8px' }}>
+        <label htmlFor="forgotpasswordform-field-53" style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: 'var(--text-dark)', marginBottom: '8px' }}>
           อีเมลของคุณ
         </label>
         <div style={{ position: 'relative' }}>
           <Mail size={18} color="#94a3b8" style={{ position: 'absolute', left: '14px', top: '14px' }} />
-          <input
+          <input id="forgotpasswordform-field-53"
             type="email"
             required
             value={email}

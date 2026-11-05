@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { clickable } from './presentation/utils/a11y';
 import { API_BASE_URL } from './config/api';
 import {
   Bot,
@@ -1494,7 +1495,7 @@ function App() {
         <div className="app-container" style={{ paddingBottom: '60px' }}>
           {/* Dashboard Navbar */}
           <header className="navbar animate-fade-in" style={{ borderBottom: '1px solid var(--border-color)', marginBottom: '24px' }}>
-            <div className="logo-container" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
+            <div className="logo-container" {...clickable(() => window.scrollTo({ top: 0, behavior: 'smooth' }))}>
               <div className="logo-badge">yP</div>
               <span className="logo-text">yourPace <span>Dashboard</span></span>
             </div>

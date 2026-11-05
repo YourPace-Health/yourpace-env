@@ -707,3 +707,62 @@ a {
   animation: waterWave 3s ease-in-out infinite;
 }
 
+
+/* ---------- Responsive overrides for layout-level inline grids ----------
+   Many screens set grid-template-columns in inline styles, which media queries
+   cannot override without !important. Only the asymmetric, layout-level grids are
+   collapsed here; small control grids (button groups, heatmap, bar chart) keep
+   their columns. */
+@media (max-width: 768px) {
+  [style*="grid-template-columns: 1fr 1.2fr"],
+  [style*="grid-template-columns: 1.2fr 1fr"],
+  [style*="grid-template-columns: 1.6fr 1fr"],
+  [style*="grid-template-columns: 1fr 1.6fr"],
+  [style*="grid-template-columns: 1fr 1.1fr"],
+  [style*="grid-template-columns: 1.4fr repeat"],
+  [style*="grid-template-columns: 1fr 1fr"][style*="gap: 24px"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  [style*="grid-template-columns: repeat(3, 1fr)"][style*="gap: 20px"],
+  [style*="grid-template-columns: repeat(4, 1fr)"][style*="gap: 18px"] {
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)) !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .navbar {
+    padding-left: 16px;
+    padding-right: 16px;
+    gap: 8px;
+  }
+
+  .nav-actions {
+    gap: 8px;
+  }
+
+  .nav-actions .btn {
+    padding: 8px 14px;
+    font-size: 13px;
+    white-space: nowrap;
+  }
+
+  .logo-text {
+    font-size: 18px;
+  }
+}
+
+/* Visible keyboard focus for everything interactive */
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
