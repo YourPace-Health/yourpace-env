@@ -86,3 +86,21 @@ func TestEmbeddedMigrationsApply(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestRunMigrationsConcurrentStartup(t *testing.T) {
+	db := testDB(t)
+	db.Exec("CREATE TABLE IF NOT EXISTS workout_schedules (user_id uuid, scheduled_date date)")
+	t.Cleanup(func() { db.Exec("DROP INDEX IF EXISTS idx_workout_schedules_user_date") })
+
+	// several instances booting at once must not collide creating schema_migrations
+	const n = 6
+	errs := make(chan error, n)
+	for i := 0; i < n; i++ {
+		go func() { errs <- RunMigrations(db) }()
+	}
+	for i := 0; i < n; i++ {
+		if err := <-errs; err != nil {
+			t.Errorf("concurrent RunMigrations: %v", err)
+		}
+	}
+}

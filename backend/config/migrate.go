@@ -32,9 +32,20 @@ func pendingMigrations(all []string, applied map[string]bool) []string {
 	return out
 }
 
+// migrationLockKey is an arbitrary application-wide Postgres advisory lock id.
+const migrationLockKey = 727348
+
 // RunMigrations applies every pending migration from the embedded migrations folder.
+// Instances starting at the same time (a rolling deploy, several replicas) take turns:
+// the advisory lock makes the second one wait, then find nothing left to apply.
 func RunMigrations(db *gorm.DB) error {
-	return runMigrations(db, migrationFiles, "migrations")
+	return db.Connection(func(conn *gorm.DB) error {
+		if err := conn.Exec("SELECT pg_advisory_lock(?)", migrationLockKey).Error; err != nil {
+			return fmt.Errorf("acquire migration lock: %w", err)
+		}
+		defer conn.Exec("SELECT pg_advisory_unlock(?)", migrationLockKey)
+		return runMigrations(conn, migrationFiles, "migrations")
+	})
 }
 
 func runMigrations(db *gorm.DB, fsys fs.FS, dir string) error {
