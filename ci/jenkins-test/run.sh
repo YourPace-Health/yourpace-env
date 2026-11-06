@@ -45,7 +45,11 @@ done
 sleep 3
 
 echo "==> running the pipeline with DEPLOY=false"
-curl -s -o /dev/null -u "admin:$PW" -X POST "http://localhost:$PORT/job/yourpace-ci/buildWithParameters?DEPLOY=false"
+# (curl on Windows exits 23 when told to discard an empty body with -o /dev/null, so read the status code instead)
+code="$(curl -s -o /dev/null -w '%{http_code}' -u "admin:$PW" -X POST "http://localhost:$PORT/job/yourpace-ci/buildWithParameters?DEPLOY=false" || true)"
+if [[ "$code" != "201" ]]; then
+  echo "could not start the build (HTTP $code)"; docker logs "$NAME" 2>&1 | tail -20; exit 1
+fi
 for _ in $(seq 1 360); do
   info="$(curl -s -u "admin:$PW" "http://localhost:$PORT/job/yourpace-ci/1/api/json?tree=building,result" || true)"
   if echo "$info" | grep -q '"building":false'; then break; fi
