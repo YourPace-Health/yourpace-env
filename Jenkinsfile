@@ -66,8 +66,22 @@ pipeline {
         stage('SonarQube Analysis') {
             steps {
                 echo 'Running SonarQube code quality analysis...'
-                withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
-                    sh 'sonar-scanner -Dsonar.host.url=http://sonarqube:9000 -Dsonar.token=$SONAR_TOKEN'
+                // The token lives in a Jenkins credential with id "sonar-token". Until it exists the
+                // analysis is skipped and the build is marked UNSTABLE, so tests and deploy still run.
+                script {
+                    try {
+                        withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
+                            sh 'sonar-scanner -Dsonar.host.url=http://sonarqube:9000 -Dsonar.token=$SONAR_TOKEN'
+                        }
+                    } catch (Exception e) {
+                        // only a missing credential is tolerated; a real scanner failure still fails the build
+                        if (!(e.message ?: '').contains('Could not find credentials')) {
+                            throw e
+                        }
+                        echo "SonarQube analysis skipped: ${e.message}"
+                        echo 'Create a Secret text credential with id sonar-token (see docs/SETUP-CHECKLIST.md, step 4).'
+                        currentBuild.result = 'UNSTABLE'
+                    }
                 }
             }
         }

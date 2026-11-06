@@ -63,7 +63,10 @@ type UpdateProfileRequest struct {
 }
 
 func GetUserProfile(c echo.Context) error {
-	email := c.Get("email").(string)
+	email, ok := c.Get("email").(string)
+	if !ok || email == "" {
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": ErrUnauthorized})
+	}
 
 	var user models.User
 	if err := config.DB.Where("email = ?", email).First(&user).Error; err != nil {
@@ -122,7 +125,10 @@ func GetUserProfile(c echo.Context) error {
 }
 
 func UpdateUserProfile(c echo.Context) error {
-	email := c.Get("email").(string)
+	email, ok := c.Get("email").(string)
+	if !ok || email == "" {
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": ErrUnauthorized})
+	}
 
 	var req UpdateProfileRequest
 	if err := c.Bind(&req); err != nil {
@@ -216,7 +222,10 @@ func UpdateUserProfile(c echo.Context) error {
 }
 
 func GetUserSetting(c echo.Context) error {
-	email := c.Get("email").(string)
+	email, ok := c.Get("email").(string)
+	if !ok || email == "" {
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": ErrUnauthorized})
+	}
 
 	var user models.User
 	if err := config.DB.Where("email = ?", email).First(&user).Error; err != nil {
@@ -245,7 +254,10 @@ type UpdateUserSettingRequest struct {
 }
 
 func UpdateUserSetting(c echo.Context) error {
-	email := c.Get("email").(string)
+	email, ok := c.Get("email").(string)
+	if !ok || email == "" {
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": ErrUnauthorized})
+	}
 
 	var req UpdateUserSettingRequest
 	if err := c.Bind(&req); err != nil {

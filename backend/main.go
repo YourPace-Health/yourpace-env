@@ -77,10 +77,7 @@ func main() {
 		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
 	}))
 
-	// Health check (used by Render / load balancers)
-	e.GET("/health", func(c echo.Context) error {
-		return c.JSON(http.StatusOK, map[string]string{"status": "ok"})
-	})
+	registerHealthRoutes(e)
 
 	// Static route
 	e.Static("/uploads", "uploads")
@@ -252,4 +249,15 @@ func allowedOrigins() []string {
 		}
 	}
 	return origins
+}
+
+// registerHealthRoutes adds the unauthenticated liveness endpoints. "/health" is what
+// Render's health check calls; "/" answers the platform's startup probe (HEAD/GET /) so
+// it does not show up as a 404 in the logs.
+func registerHealthRoutes(e *echo.Echo) {
+	ok := func(c echo.Context) error {
+		return c.JSON(http.StatusOK, map[string]string{"status": "ok"})
+	}
+	e.Match([]string{http.MethodGet, http.MethodHead}, "/health", ok)
+	e.Match([]string{http.MethodGet, http.MethodHead}, "/", ok)
 }

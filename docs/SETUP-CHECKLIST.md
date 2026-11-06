@@ -51,17 +51,49 @@ The Jenkinsfile now runs real tests, needs Go in the image, and reads the Sonar 
    - Kind: **Secret text**
    - Secret: the Sonar token
    - ID: `sonar-token` (must match exactly)
-4. Run the pipeline. The backend test stage starts a throwaway Postgres through the Docker socket; if it fails with "permission denied" on `docker`, the Jenkins container needs access to `/var/run/docker.sock` (it is mounted in `docker-compose.yml`).
+4. Until this credential exists, the Sonar stage is skipped and the build is marked UNSTABLE (tests and deploy still run). A real scanner failure still fails the build.
+5. Run the pipeline. The backend test stage starts a throwaway Postgres through the Docker socket; if it fails with "permission denied" on `docker`, the Jenkins container needs access to `/var/run/docker.sock` (it is mounted in `docker-compose.yml`).
 
-## 5. Turn on reminder emails (optional)
+## 5. Turn on email (sign-up codes, magic links, workout reminders)
 
-Reminders only send when `MAIL_ENABLED=true`. The mailer uses Gmail SMTP, so use an **App Password**, not your normal password.
+With `MAIL_ENABLED=false` no email is sent: sign-up codes only appear in the server log, so nobody
+except you can register with an email address. Turn email on before real users arrive.
 
-1. Google Account -> **Security -> 2-Step Verification** (must be on) -> **App passwords** -> create one for "yourPace".
-2. On Render set `MAIL_ENABLED=true`, `MAIL_USERNAME=<your gmail address>`, `MAIL_PASSWORD=<the app password>`.
-3. In the app: Profile page (scroll to the bottom) -> the **แจ้งเตือนการออกกำลังกาย** card -> turn on, pick a time, save.
-4. Create a workout for today (or use "Generate schedule"), wait for the chosen time, and check the inbox. A reminder is sent once per workout, within 6 hours after the chosen time.
-5. This also enables OTP and magic-link emails, which were only logged to the console before.
+**Use an HTTPS mail provider, not Gmail SMTP.** Render's free web services block outbound SMTP
+ports, so the old Gmail setup does not work there. The backend now supports **Brevo** and
+**Resend** over HTTPS.
+
+### Brevo (works with just a verified sender address, no domain needed)
+1. Create a free account at brevo.com.
+2. **Senders, Domains & Dedicated IPs -> Senders -> Add a sender**: use an address you own (for example your Gmail) and confirm the email Brevo sends to it. New accounts may also be asked to complete an account check; finish it.
+3. **SMTP & API -> API Keys -> Generate a new API key**. Copy it (shown once).
+4. Render -> `yourpace-backend` -> **Environment**, add:
+
+   | Key | Value |
+   |---|---|
+   | `MAIL_ENABLED` | `true` |
+   | `MAIL_PROVIDER` | `brevo` |
+   | `BREVO_API_KEY` | the API key |
+   | `MAIL_FROM` | the sender address you verified |
+   | `MAIL_FROM_NAME` | `yourPace` (optional) |
+
+5. Save; Render restarts the service.
+6. Test: register a new account with an email you can read. The code should arrive within a minute (check spam the first time). If it does not, Render **Logs** shows `Error sending OTP email ...` with the provider's reason (wrong key, unverified sender, quota).
+
+Free plans have a daily sending limit; check the current number on the provider's page.
+
+### Resend (alternative)
+Set `MAIL_PROVIDER=resend`, `RESEND_API_KEY`, and `MAIL_FROM`. Until you verify your own domain
+in Resend, it only delivers to your own account's address, so Brevo is easier for a first launch.
+
+### Reminders
+Reminders use the same email setup. In the app: Profile page -> scroll to the
+**แจ้งเตือนการออกกำลังกาย** card -> turn on, pick a time, save. A reminder is sent once per
+workout, within 6 hours after the chosen time, only for users who turned it on.
+
+### Keep Gmail SMTP (local docker-compose only)
+`MAIL_PROVIDER` unset means SMTP: set `MAIL_USERNAME` and `MAIL_PASSWORD` (a Google **App
+Password**, 2-Step Verification required). This works on your own machine, not on Render's free plan.
 
 ## 6. Check on real devices
 
@@ -69,7 +101,12 @@ Reminders only send when `MAIL_ENABLED=true`. The mailer uses Gmail SMTP, so use
 - **Keyboard:** Tab through the login form and a modal; Escape should close a modal and the focus outline should be visible.
 - **Screen reader:** with NVDA (Windows) or VoiceOver (macOS/iOS), open the log-weight modal. It should announce a dialog, and each field should be read with its label.
 
-## 7. Run the database tests locally
+## 7. Move the database before it expires
+
+Render's free Postgres is deleted after its expiry date (yours is **3 December 2026**). Follow
+[DATABASE-HOSTING.md](DATABASE-HOSTING.md): back up, restore into a new host, set `DATABASE_URL`.
+
+## 8. Run the database tests locally
 
 ```bash
 docker run -d --name yp-test-pg -e POSTGRES_PASSWORD=test -e POSTGRES_DB=youpace_test -p 55432:5432 postgres:15-alpine
