@@ -26,12 +26,13 @@ import (
 //	TEST_DATABASE_URL="host=localhost port=55432 user=postgres password=test dbname=youpace_test sslmode=disable" go test ./handlers
 //
 // Without it these tests are skipped.
+// testTables mirrors the order used by AutoMigrate in main.go: parents before children, so
+// foreign keys can be created on a fresh database. Tables are emptied in reverse order.
 var testTables = []interface{}{
-	// children before parents: tables are emptied in this order
-	&models.WorkoutScheduleDetail{}, &models.FavExercise{}, &models.WorkoutSchedule{}, &models.Exercise{},
-	&models.UserSetting{}, &models.EmotionalCheckIn{}, &models.MealLog{}, &models.Milestone{},
-	&models.Equipment{}, &models.UserGoogleToken{}, &models.UserHealthLog{}, &models.WaterLog{},
-	&models.WeightLog{}, &models.ChatMessage{}, &models.User{},
+	&models.User{}, &models.UserSetting{}, &models.Exercise{}, &models.FavExercise{},
+	&models.EmotionalCheckIn{}, &models.WorkoutSchedule{}, &models.WorkoutScheduleDetail{},
+	&models.MealLog{}, &models.Milestone{}, &models.Equipment{}, &models.UserGoogleToken{},
+	&models.UserHealthLog{}, &models.WaterLog{}, &models.WeightLog{}, &models.ChatMessage{},
 }
 
 func setupTestDB(t *testing.T) {
@@ -52,8 +53,8 @@ func setupTestDB(t *testing.T) {
 	config.DB = db
 
 	truncate := func() {
-		for _, m := range testTables {
-			db.Session(&gorm.Session{AllowGlobalUpdate: true}).Unscoped().Delete(m)
+		for i := len(testTables) - 1; i >= 0; i-- {
+			db.Session(&gorm.Session{AllowGlobalUpdate: true}).Unscoped().Delete(testTables[i])
 		}
 	}
 	truncate()

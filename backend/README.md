@@ -8,7 +8,7 @@ This is the Go (Golang) RESTful API service powering the **youPace** health and 
 
 1.  **AI Nutrition Coach & Tracker:** Analyzes food photography or text logs to return calorie counts, macronutrients, and healthy eating insights using the Google Gemini API.
 2.  **AI Fitness Mentor (Chatbot):** An interactive assistant responding to health and wellness questions, automatically personalized based on the user's fitness profile.
-3.  **Smart Exercise Scheduling:** Works with **n8n workflows** to automatically look for free slots on the user's Google Calendar and schedule exercises accordingly.
+3.  **Smart Exercise Scheduling:** Asks Gemini to plan workouts around free slots on the user's Google Calendar and adds them as calendar events.
 4.  **Habit & Health Tracking:** Tracks daily water intake, body weight fluctuations, and daily mental emotional state check-ins.
 5.  **Multi-tier Security:** Implements JSON Web Token (JWT) stateless auth and Google OAuth 2.0.
 

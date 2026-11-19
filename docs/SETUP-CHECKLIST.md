@@ -38,30 +38,116 @@ Google blocks sign-in when the site's origin is not on the OAuth client.
 4. Save. Changes can take a few minutes. Retry Google sign-in in a private window.
 5. If the consent screen is in "Testing" mode, add your Google account under **OAuth consent screen -> Test users**.
 
-## 4. Jenkins: rebuild the image and add the Sonar token
+## 4. Jenkins: make it run this repo's Jenkinsfile
 
-The Jenkinsfile now runs real tests, needs Go in the image, and reads the Sonar token from a credential.
+Your existing Jenkins (`youpace_jenkins`, job `yourpace-cicd`) runs an **inline script** that is not in git,
+points at an old empty folder (`Desktop\YourPaceEnv`), and has the SonarQube token typed in as plain text.
+Switch it to the repo's `Jenkinsfile`:
 
-1. Rebuild and restart Jenkins:
+1. **Rotate the Sonar token.** The token currently written in the job's script is readable by anyone
+   with access to that Jenkins. In SonarQube (http://localhost:9005) -> **My Account -> Security**:
+   revoke the old token and generate a new one. Copy the new one.
+2. **Rebuild the Jenkins image** (the new one has Go and Node, which the pipeline needs). Use the
+   project name your stack already runs under so the existing containers and the `jenkins_data` volume
+   are reused:
    ```bash
-   docker compose build jenkins && docker compose up -d jenkins
+   docker compose -p yourpaceenv build jenkins
+   docker compose -p yourpaceenv up -d jenkins
    ```
-2. SonarQube (http://localhost:9005) -> **My Account -> Security -> Generate token**. Copy it.
-3. Jenkins (http://localhost:8085) -> **Manage Jenkins -> Credentials -> (global) -> Add Credentials**:
-   - Kind: **Secret text**
-   - Secret: the Sonar token
-   - ID: `sonar-token` (must match exactly)
-4. Run the pipeline. The backend test stage starts a throwaway Postgres through the Docker socket; if it fails with "permission denied" on `docker`, the Jenkins container needs access to `/var/run/docker.sock` (it is mounted in `docker-compose.yml`).
+   Run this from a folder that contains the repo's `docker-compose.yml` (for example `C:\yp-src`).
+   If compose reports that a container name is already in use, stop and tell whoever helps you,
+   instead of forcing it: a wrong project name would create an empty second Jenkins.
+3. **Add credentials** (Jenkins -> Manage Jenkins -> Credentials -> System -> Global -> Add Credentials):
+   | Kind | ID | Content |
+   |---|---|---|
+   | Secret text | `sonar-token` | the new Sonar token |
+   | Secret file | `yourpace-dotenv` | a copy of your `.env` (POSTGRES_PASSWORD, JWT_SECRET, ...) |
+4. **Repoint the job:** open `yourpace-cicd` -> **Configure** -> Pipeline -> Definition: **Pipeline script from SCM**
+   - SCM: Git, Repository URL `https://github.com/YourPace-Health/yourpace-env.git` (the repo is public, no credential needed)
+   - Branch: `*/main`, Script Path: `Jenkinsfile` -> Save.
+5. **Run it:** *Build with Parameters*. First run with **DEPLOY unticked** to check everything except the deploy;
+   then run with it ticked to rebuild `youpace_backend` and `youpace_frontend`.
 
-## 5. Turn on reminder emails (optional)
+What the stages do, and what happens when a credential is missing:
 
-Reminders only send when `MAIL_ENABLED=true`. The mailer uses Gmail SMTP, so use an **App Password**, not your normal password.
+| Stage | Needs | If missing |
+|---|---|---|
+| Backend vet/tests | Go in the image, Docker socket | build fails (rebuild the image) |
+| Frontend lint/tests/build | Node in the image | build fails |
+| SonarQube | `sonar-token` | skipped, build UNSTABLE |
+| Deploy (when DEPLOY is ticked) | `yourpace-dotenv` | skipped, build UNSTABLE |
 
-1. Google Account -> **Security -> 2-Step Verification** (must be on) -> **App passwords** -> create one for "yourPace".
-2. On Render set `MAIL_ENABLED=true`, `MAIL_USERNAME=<your gmail address>`, `MAIL_PASSWORD=<the app password>`.
-3. In the app: Profile page (scroll to the bottom) -> the **แจ้งเตือนการออกกำลังกาย** card -> turn on, pick a time, save.
-4. Create a workout for today (or use "Generate schedule"), wait for the chosen time, and check the inbox. A reminder is sent once per workout, within 6 hours after the chosen time.
-5. This also enables OTP and magic-link emails, which were only logged to the console before.
+## 5. Turn on email (sign-up codes, magic links, workout reminders)
+
+With `MAIL_ENABLED=false` no email is sent: sign-up codes only appear in the server log, so nobody
+except you can register with an email address. Turn email on before real users arrive.
+
+**Use an HTTPS mail provider, not Gmail SMTP.** Render's free web services block outbound SMTP
+ports, so the old Gmail setup does not work there. The backend now supports **Brevo** and
+**Resend** over HTTPS.
+
+
+> **The mail code must be on `main` first.** Render deploys `main`; until the pull request with
+> `MAIL_PROVIDER` support is merged and Render has redeployed, setting these variables does nothing.
+> After the redeploy, `GET /health` still answers, and sending a test sign-up code is the real check.
+
+### Brevo (works with just a verified sender address, no domain needed)
+1. Create a free account at brevo.com.
+2. **Senders, Domains & Dedicated IPs -> Senders -> Add a sender**: use an address you own (for example your Gmail) and confirm the email Brevo sends to it. New accounts may also be asked to complete an account check; finish it.
+3. **SMTP & API -> API Keys -> Generate a new API key**. Copy it (shown once).
+### Before touching Render: check the key and sender from your own terminal
+
+This proves the Brevo account is ready, so a later failure can only be a Render setting.
+Replace the three values (do not paste your key anywhere else).
+
+PowerShell:
+```powershell
+$key  = "<your Brevo API key>"
+$from = "<the sender address you verified>"
+$to   = "<an inbox you can read>"
+Invoke-RestMethod -Method Post -Uri "https://api.brevo.com/v3/smtp/email" `
+  -Headers @{ "api-key" = $key; "accept" = "application/json" } -ContentType "application/json" `
+  -Body (@{ sender = @{ email = $from; name = "yourPace" }; to = @(@{ email = $to });
+            subject = "yourPace test"; htmlContent = "<p>It works.</p>" } | ConvertTo-Json -Depth 5)
+```
+
+bash:
+```bash
+curl -s -X POST https://api.brevo.com/v3/smtp/email \
+  -H "api-key: $KEY" -H "content-type: application/json" \
+  -d '{"sender":{"email":"'"$FROM"'","name":"yourPace"},"to":[{"email":"'"$TO"'"}],"subject":"yourPace test","htmlContent":"<p>It works.</p>"}'
+```
+
+A `messageId` in the answer means Brevo accepted it; the email arrives within a minute (check spam).
+Typical errors: `unauthorized` = wrong API key; `sender ... not valid` = the sender address is not verified yet.
+
+4. Render -> `yourpace-backend` -> **Environment**, add:
+
+   | Key | Value |
+   |---|---|
+   | `MAIL_ENABLED` | `true` |
+   | `MAIL_PROVIDER` | `brevo` |
+   | `BREVO_API_KEY` | the API key |
+   | `MAIL_FROM` | the sender address you verified |
+   | `MAIL_FROM_NAME` | `yourPace` (optional) |
+
+5. Save; Render restarts the service.
+6. Test: register a new account with an email you can read. The code should arrive within a minute (check spam the first time). If it does not, Render **Logs** shows `Error sending OTP email ...` with the provider's reason (wrong key, unverified sender, quota).
+
+Free plans have a daily sending limit; check the current number on the provider's page.
+
+### Resend (alternative)
+Set `MAIL_PROVIDER=resend`, `RESEND_API_KEY`, and `MAIL_FROM`. Until you verify your own domain
+in Resend, it only delivers to your own account's address, so Brevo is easier for a first launch.
+
+### Reminders
+Reminders use the same email setup. In the app: Profile page -> scroll to the
+**แจ้งเตือนการออกกำลังกาย** card -> turn on, pick a time, save. A reminder is sent once per
+workout, within 6 hours after the chosen time, only for users who turned it on.
+
+### Keep Gmail SMTP (local docker-compose only)
+`MAIL_PROVIDER` unset means SMTP: set `MAIL_USERNAME` and `MAIL_PASSWORD` (a Google **App
+Password**, 2-Step Verification required). This works on your own machine, not on Render's free plan.
 
 ## 6. Check on real devices
 
@@ -69,7 +155,12 @@ Reminders only send when `MAIL_ENABLED=true`. The mailer uses Gmail SMTP, so use
 - **Keyboard:** Tab through the login form and a modal; Escape should close a modal and the focus outline should be visible.
 - **Screen reader:** with NVDA (Windows) or VoiceOver (macOS/iOS), open the log-weight modal. It should announce a dialog, and each field should be read with its label.
 
-## 7. Run the database tests locally
+## 7. Move the database before it expires
+
+Render's free Postgres is deleted after its expiry date (yours is **3 December 2026**). Follow
+[DATABASE-HOSTING.md](DATABASE-HOSTING.md): back up, restore into a new host, set `DATABASE_URL`.
+
+## 8. Run the database tests locally
 
 ```bash
 docker run -d --name yp-test-pg -e POSTGRES_PASSWORD=test -e POSTGRES_DB=youpace_test -p 55432:5432 postgres:15-alpine

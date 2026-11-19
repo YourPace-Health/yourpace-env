@@ -1,10 +1,13 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"reflect"
+	"regexp"
 	"testing"
 	"testing/fstest"
+	"time"
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -22,18 +25,43 @@ func TestPendingMigrations(t *testing.T) {
 	}
 }
 
+// testDB returns a connection to a brand-new, empty database that is dropped when the test
+// ends. These tests create and drop tables (including a stand-in workout_schedules), and the
+// handler tests share the main test database and run in parallel with this package, so they
+// must not touch it. TEST_DATABASE_URL must use the key=value form (host=... dbname=...).
 func testDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	dsn := os.Getenv("TEST_DATABASE_URL")
 	if dsn == "" {
 		t.Skip("TEST_DATABASE_URL not set; skipping database test")
 	}
-	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	nameRe := regexp.MustCompile(`dbname=\S+`)
+	if !nameRe.MatchString(dsn) {
+		t.Skip("TEST_DATABASE_URL must contain dbname=... (key=value form) for isolated config tests")
+	}
+
+	admin, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	db.Exec("DROP TABLE IF EXISTS " + migrationsTable + ", mig_probe")
-	t.Cleanup(func() { db.Exec("DROP TABLE IF EXISTS " + migrationsTable + ", mig_probe") })
+	name := fmt.Sprintf("yp_cfg_%d", time.Now().UnixNano())
+	if err := admin.Exec("CREATE DATABASE " + name).Error; err != nil {
+		t.Fatalf("create scratch database: %v", err)
+	}
+
+	db, err := gorm.Open(postgres.Open(nameRe.ReplaceAllString(dsn, "dbname="+name)), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if sqlDB, err := db.DB(); err == nil {
+			sqlDB.Close()
+		}
+		admin.Exec("DROP DATABASE IF EXISTS " + name + " WITH (FORCE)")
+		if sqlDB, err := admin.DB(); err == nil {
+			sqlDB.Close()
+		}
+	})
 	return db
 }
 
@@ -81,7 +109,6 @@ func TestRunMigrationsRollsBackAFailingFile(t *testing.T) {
 func TestEmbeddedMigrationsApply(t *testing.T) {
 	db := testDB(t)
 	db.Exec("CREATE TABLE IF NOT EXISTS workout_schedules (user_id uuid, scheduled_date date)")
-	t.Cleanup(func() { db.Exec("DROP INDEX IF EXISTS idx_workout_schedules_user_date") })
 	if err := RunMigrations(db); err != nil {
 		t.Fatal(err)
 	}
@@ -90,7 +117,6 @@ func TestEmbeddedMigrationsApply(t *testing.T) {
 func TestRunMigrationsConcurrentStartup(t *testing.T) {
 	db := testDB(t)
 	db.Exec("CREATE TABLE IF NOT EXISTS workout_schedules (user_id uuid, scheduled_date date)")
-	t.Cleanup(func() { db.Exec("DROP INDEX IF EXISTS idx_workout_schedules_user_date") })
 
 	// several instances booting at once must not collide creating schema_migrations
 	const n = 6

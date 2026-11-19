@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/redis/go-redis/v9"
 	"gorm.io/driver/postgres"
@@ -17,20 +18,32 @@ var (
 	Ctx         = context.Background()
 )
 
-func InitDB() *gorm.DB {
-	host := os.Getenv("DB_HOST")
-	port := os.Getenv("DB_PORT")
-	user := os.Getenv("DB_USER")
-	password := os.Getenv("DB_PASSWORD")
-	dbname := os.Getenv("DB_NAME")
-	sslmode := os.Getenv("DB_SSLMODE")
+// BuildDSN returns the Postgres connection string. DATABASE_URL (what Neon, Supabase,
+// Render and most hosts hand out) wins when set; otherwise it is assembled from the
+// DB_* variables. The session time zone defaults to Asia/Bangkok.
+func BuildDSN() string {
+	if raw := strings.TrimSpace(os.Getenv("DATABASE_URL")); raw != "" {
+		if strings.Contains(strings.ToLower(raw), "timezone=") {
+			return raw
+		}
+		sep := "?"
+		if strings.Contains(raw, "?") {
+			sep = "&"
+		}
+		return raw + sep + "TimeZone=Asia/Bangkok"
+	}
 
+	sslmode := os.Getenv("DB_SSLMODE")
 	if sslmode == "" {
 		sslmode = "disable"
 	}
+	return fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=%s TimeZone=Asia/Bangkok",
+		os.Getenv("DB_HOST"), os.Getenv("DB_USER"), os.Getenv("DB_PASSWORD"),
+		os.Getenv("DB_NAME"), os.Getenv("DB_PORT"), sslmode)
+}
 
-	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=%s TimeZone=Asia/Bangkok",
-		host, user, password, dbname, port, sslmode)
+func InitDB() *gorm.DB {
+	dsn := BuildDSN()
 
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {

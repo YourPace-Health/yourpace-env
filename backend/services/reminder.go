@@ -3,8 +3,6 @@ package services
 import (
 	"fmt"
 	"log"
-	"net/smtp"
-	"os"
 	"time"
 )
 
@@ -48,18 +46,9 @@ func SendWorkoutReminder(email, title string, minutes int) error {
 	body := fmt.Sprintf("<html><body><h3>Time to move! 💪</h3><p>Your workout today: <b>%s</b> (%d min).</p>"+
 		"<p>Open yourPace to see the plan and log it when you're done.</p></body></html>", title, minutes)
 
-	if os.Getenv("MAIL_ENABLED") != "true" {
+	if !MailExplicitlyEnabled() {
 		log.Printf("[MOCK MAIL] Workout reminder to %s: %s", email, title)
 		return nil
 	}
-
-	username := os.Getenv("MAIL_USERNAME")
-	password := os.Getenv("MAIL_PASSWORD")
-	if username == "" || password == "" {
-		return fmt.Errorf("MAIL_USERNAME and MAIL_PASSWORD must be set when mail is enabled")
-	}
-
-	msg := []byte("Subject: " + subject + "\nMIME-version: 1.0;\nContent-Type: text/html; charset=\"UTF-8\";\n\n" + body)
-	auth := smtp.PlainAuth("", username, password, "smtp.gmail.com")
-	return smtp.SendMail("smtp.gmail.com:587", auth, username, []string{email}, msg)
+	return SendMail(Mail{To: email, Subject: subject, HTML: body})
 }

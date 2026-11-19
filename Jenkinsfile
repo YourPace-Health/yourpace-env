@@ -1,9 +1,17 @@
 pipeline {
     agent any
 
+    parameters {
+        booleanParam(name: 'DEPLOY', defaultValue: true,
+                     description: 'After a green build, rebuild and restart the backend and frontend containers')
+    }
+
     environment {
         DOCKER_IMAGE_BACKEND = 'youpace-backend'
         DOCKER_IMAGE_FRONTEND = 'youpace-frontend'
+        // The compose project that owns the running youpace_* containers. Without it compose
+        // names the project after the workspace folder and collides with the existing containers.
+        COMPOSE_PROJECT_NAME = 'yourpaceenv'
     }
 
     stages {
@@ -66,16 +74,52 @@ pipeline {
         stage('SonarQube Analysis') {
             steps {
                 echo 'Running SonarQube code quality analysis...'
-                withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
-                    sh 'sonar-scanner -Dsonar.host.url=http://sonarqube:9000 -Dsonar.token=$SONAR_TOKEN'
+                // The token lives in a Jenkins credential with id "sonar-token". Until it exists the
+                // analysis is skipped and the build is marked UNSTABLE, so tests and deploy still run.
+                script {
+                    try {
+                        withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
+                            sh 'sonar-scanner -Dsonar.host.url=http://sonarqube:9000 -Dsonar.token=$SONAR_TOKEN'
+                        }
+                    } catch (Exception e) {
+                        // only a missing credential is tolerated; a real scanner failure still fails the build
+                        if (!(e.message ?: '').contains('Could not find credentials')) {
+                            throw e
+                        }
+                        echo "SonarQube analysis skipped: ${e.message}"
+                        echo 'Create a Secret text credential with id sonar-token (see docs/SETUP-CHECKLIST.md, step 4).'
+                        currentBuild.result = 'UNSTABLE'
+                    }
                 }
             }
         }
 
         stage('Build & Deploy Containers') {
+            when { expression { return params.DEPLOY } }
             steps {
-                echo 'Rebuilding and Deploying containers using Docker Compose...'
-                sh 'docker compose up -d --build backend frontend'
+                echo 'Rebuilding and deploying containers using Docker Compose...'
+                // The compose file needs POSTGRES_PASSWORD, JWT_SECRET, ... from a .env that is not in git.
+                // Store it as a "Secret file" credential with id yourpace-dotenv; without it the deploy is
+                // skipped (build UNSTABLE) instead of failing on missing variables.
+                script {
+                    try {
+                        withCredentials([file(credentialsId: 'yourpace-dotenv', variable: 'DOTENV_FILE')]) {
+                            try {
+                                sh 'cp "$DOTENV_FILE" .env'
+                                sh 'docker compose up -d --build backend frontend'
+                            } finally {
+                                sh 'rm -f .env'
+                            }
+                        }
+                    } catch (Exception e) {
+                        if (!(e.message ?: '').contains('Could not find credentials')) {
+                            throw e
+                        }
+                        echo "Deploy skipped: ${e.message}"
+                        echo 'Create a Secret file credential with id yourpace-dotenv (see docs/SETUP-CHECKLIST.md, step 4).'
+                        currentBuild.result = 'UNSTABLE'
+                    }
+                }
             }
         }
     }
