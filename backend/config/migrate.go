@@ -51,7 +51,7 @@ func RunMigrations(db *gorm.DB) error {
 func runMigrations(db *gorm.DB, fsys fs.FS, dir string) error {
 	if err := db.Exec(`CREATE TABLE IF NOT EXISTS ` + migrationsTable + ` (
 		version    text PRIMARY KEY,
-		applied_at timestamptz NOT NULL DEFAULT now()
+		applied_at timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP
 	)`).Error; err != nil {
 		return fmt.Errorf("create %s: %w", migrationsTable, err)
 	}

@@ -1,22 +1,32 @@
 package handlers
 
 import (
+	"context"
+	"database/sql"
+	"time"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"os"
+	"reflect"
 	"sort"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"youpace/config"
 	"youpace/models"
 
+	"github.com/glebarez/sqlite"
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
+	"gorm.io/gorm/schema"
 )
 
 // Handler tests that touch the database run against a real Postgres. Point
@@ -25,7 +35,7 @@ import (
 //	docker run -d -e POSTGRES_PASSWORD=test -e POSTGRES_DB=youpace_test -p 55432:5432 postgres:15-alpine
 //	TEST_DATABASE_URL="host=localhost port=55432 user=postgres password=test dbname=youpace_test sslmode=disable" go test ./handlers
 //
-// Without it these tests are skipped.
+// Without it the tests run against an in-memory SQLite database (no Docker needed).
 // testTables mirrors the order used by AutoMigrate in main.go: parents before children, so
 // foreign keys can be created on a fresh database. Tables are emptied in reverse order.
 var testTables = []interface{}{
@@ -37,18 +47,24 @@ var testTables = []interface{}{
 
 func setupTestDB(t *testing.T) {
 	t.Helper()
-	dsn := os.Getenv("TEST_DATABASE_URL")
-	if dsn == "" {
-		t.Skip("TEST_DATABASE_URL not set; skipping database test")
-	}
 	t.Setenv("JWT_SECRET", "handler-test-secret")
+	t.Setenv("MAIL_ENABLED", "false") // mock mail: never touch a real provider
 
-	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	var db *gorm.DB
+	var err error
+	if dsn := os.Getenv("TEST_DATABASE_URL"); dsn != "" {
+		db, err = gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	} else {
+		db, err = openSQLiteTestDB(t)
+	}
 	if err != nil {
 		t.Fatalf("connect test database: %v", err)
 	}
 	if err := db.AutoMigrate(testTables...); err != nil {
 		t.Fatalf("migrate: %v", err)
+	}
+	if db.Dialector.Name() == "sqlite" {
+		addSQLiteDateTriggers(t, db)
 	}
 	config.DB = db
 
@@ -59,6 +75,153 @@ func setupTestDB(t *testing.T) {
 	}
 	truncate()
 	t.Cleanup(truncate)
+}
+
+var sqliteSeq atomic.Int64
+
+// openSQLiteTestDB returns a private in-memory SQLite database so the suite needs no
+// external services. The models declare Postgres defaults (gen_random_uuid()); SQLite
+// cannot run those, so the defaults are dropped from the cached schemas and a create
+// callback fills the UUID primary keys instead.
+func openSQLiteTestDB(t *testing.T) (*gorm.DB, error) {
+	t.Helper()
+	dsn := fmt.Sprintf("file:yptest%d?mode=memory&cache=shared", sqliteSeq.Add(1))
+	raw, err := sql.Open("sqlite", dsn)
+	if err != nil {
+		return nil, err
+	}
+	raw.SetMaxOpenConns(1)
+	t.Cleanup(func() { raw.Close() })
+	db, err := gorm.Open(sqlite.Dialector{Conn: &dateConnPool{raw}}, &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
+	if err != nil {
+		return nil, err
+	}
+
+	for _, m := range testTables {
+		stmt := &gorm.Statement{DB: db}
+		if err := stmt.Parse(m); err != nil {
+			return nil, err
+		}
+		for _, f := range stmt.Schema.Fields {
+			if strings.Contains(f.DefaultValue, "gen_random_uuid") {
+				f.DefaultValue = ""
+				f.HasDefaultValue = false
+				f.DefaultValueInterface = nil
+			}
+		}
+	}
+	err = db.Callback().Create().Before("gorm:create").Register("yptest:uuid", func(tx *gorm.DB) {
+		if tx.Statement.Schema == nil {
+			return
+		}
+		for _, f := range tx.Statement.Schema.PrimaryFields {
+			if f.FieldType != reflect.TypeOf(uuid.UUID{}) {
+				continue
+			}
+			rv := tx.Statement.ReflectValue
+			switch rv.Kind() {
+			case reflect.Slice, reflect.Array:
+				for i := 0; i < rv.Len(); i++ {
+					fillUUID(tx, f, rv.Index(i))
+				}
+			case reflect.Struct:
+				fillUUID(tx, f, rv)
+			}
+		}
+	})
+	return db, err
+}
+
+// dateConnPool rewrites time arguments that sit exactly on midnight into "YYYY-MM-DD"
+// strings. Postgres compares a DATE column with such a timestamp by date; SQLite would
+// compare text and never match the trimmed value stored by the date triggers.
+type dateConnPool struct{ db *sql.DB }
+
+func fixDateArgs(args []interface{}) []interface{} {
+	out := make([]interface{}, len(args))
+	for i, a := range args {
+		if tm, ok := a.(time.Time); ok && tm.Hour() == 0 && tm.Minute() == 0 && tm.Second() == 0 && tm.Nanosecond() == 0 {
+			a = tm.Format("2006-01-02")
+		}
+		out[i] = a
+	}
+	return out
+}
+
+func (p *dateConnPool) PrepareContext(ctx context.Context, q string) (*sql.Stmt, error) {
+	return p.db.PrepareContext(ctx, q)
+}
+func (p *dateConnPool) ExecContext(ctx context.Context, q string, a ...interface{}) (sql.Result, error) {
+	return p.db.ExecContext(ctx, q, fixDateArgs(a)...)
+}
+func (p *dateConnPool) QueryContext(ctx context.Context, q string, a ...interface{}) (*sql.Rows, error) {
+	return p.db.QueryContext(ctx, q, fixDateArgs(a)...)
+}
+func (p *dateConnPool) QueryRowContext(ctx context.Context, q string, a ...interface{}) *sql.Row {
+	return p.db.QueryRowContext(ctx, q, fixDateArgs(a)...)
+}
+func (p *dateConnPool) GetDBConn() (*sql.DB, error) { return p.db, nil }
+func (p *dateConnPool) BeginTx(ctx context.Context, opts *sql.TxOptions) (gorm.ConnPool, error) {
+	tx, err := p.db.BeginTx(ctx, opts)
+	if err != nil {
+		return nil, err
+	}
+	return &dateTx{tx}, nil
+}
+
+type dateTx struct{ tx *sql.Tx }
+
+func (p *dateTx) PrepareContext(ctx context.Context, q string) (*sql.Stmt, error) {
+	return p.tx.PrepareContext(ctx, q)
+}
+func (p *dateTx) ExecContext(ctx context.Context, q string, a ...interface{}) (sql.Result, error) {
+	return p.tx.ExecContext(ctx, q, fixDateArgs(a)...)
+}
+func (p *dateTx) QueryContext(ctx context.Context, q string, a ...interface{}) (*sql.Rows, error) {
+	return p.tx.QueryContext(ctx, q, fixDateArgs(a)...)
+}
+func (p *dateTx) QueryRowContext(ctx context.Context, q string, a ...interface{}) *sql.Row {
+	return p.tx.QueryRowContext(ctx, q, fixDateArgs(a)...)
+}
+func (p *dateTx) Commit() error   { return p.tx.Commit() }
+func (p *dateTx) Rollback() error { return p.tx.Rollback() }
+
+// addSQLiteDateTriggers makes DATE columns behave like Postgres: SQLite would keep the
+// full timestamp the driver writes, so equality checks such as log_date = '2026-01-02'
+// never match. A trigger trims the stored text to the date part.
+func addSQLiteDateTriggers(t *testing.T, db *gorm.DB) {
+	t.Helper()
+	for _, m := range testTables {
+		stmt := &gorm.Statement{DB: db}
+		if err := stmt.Parse(m); err != nil {
+			t.Fatal(err)
+		}
+		for _, f := range stmt.Schema.Fields {
+			if !strings.EqualFold(string(f.DataType), "date") {
+				continue
+			}
+			tbl, col := stmt.Schema.Table, f.DBName
+			for _, ev := range []string{"INSERT", "UPDATE OF " + col} {
+				name := fmt.Sprintf("trim_%s_%s_%s", tbl, col, strings.Fields(ev)[0])
+				sql := fmt.Sprintf(`CREATE TRIGGER IF NOT EXISTS %s AFTER %s ON %s
+					WHEN length(NEW.%s) > 10
+					BEGIN UPDATE %s SET %s = substr(NEW.%s, 1, 10) WHERE rowid = NEW.rowid; END`,
+					name, ev, tbl, col, tbl, col, col)
+				if err := db.Exec(sql).Error; err != nil {
+					t.Fatalf("trigger %s: %v", name, err)
+				}
+			}
+		}
+	}
+}
+
+func fillUUID(tx *gorm.DB, f *schema.Field, rv reflect.Value) {
+	for rv.Kind() == reflect.Ptr {
+		rv = rv.Elem()
+	}
+	if v, zero := f.ValueOf(tx.Statement.Context, rv); zero || v == uuid.Nil {
+		_ = f.Set(tx.Statement.Context, rv, uuid.New())
+	}
 }
 
 func createUser(t *testing.T, email, password string, confirmed bool) models.User {

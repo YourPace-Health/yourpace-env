@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"time"
 	"net/http"
 	"testing"
 
@@ -249,6 +250,7 @@ func TestMealHistoryIsPerUserAndNewestFirst(t *testing.T) {
 	createUser(t, "h@example.com", "x", true)
 	createUser(t, "g@example.com", "x", true)
 	call(t, LogMeal, http.MethodPost, `{"mealDescription":"first","calories":100}`, "h@example.com")
+	time.Sleep(20 * time.Millisecond) // distinct timestamps even on a coarse clock
 	call(t, LogMeal, http.MethodPost, `{"mealDescription":"second","calories":200}`, "h@example.com")
 
 	var mine, theirs []models.MealLog

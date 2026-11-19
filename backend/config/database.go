@@ -42,10 +42,13 @@ func BuildDSN() string {
 		os.Getenv("DB_NAME"), os.Getenv("DB_PORT"), sslmode)
 }
 
-func InitDB() *gorm.DB {
-	dsn := BuildDSN()
+// connectDB opens the Postgres connection for dsn.
+func connectDB(dsn string) (*gorm.DB, error) {
+	return gorm.Open(postgres.Open(dsn), &gorm.Config{})
+}
 
-	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+func InitDB() *gorm.DB {
+	db, err := connectDB(BuildDSN())
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}

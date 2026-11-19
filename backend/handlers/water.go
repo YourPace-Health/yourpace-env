@@ -8,7 +8,9 @@ import (
 	"youpace/models"
 	"youpace/services"
 
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
+	"gorm.io/gorm/clause"
 )
 
 type WaterLogResponse struct {
@@ -26,6 +28,22 @@ type WaterLogResponse struct {
 type UpdateWaterLogRequest struct {
 	Glasses  *int `json:"glasses"`
 	AmountMl *int `json:"amountMl"`
+}
+
+// createWaterLogOnce inserts today's row for the user. Concurrent requests for a new day
+// all try to create it; the unique index (user_id, log_date) lets only one win. The
+// others insert nothing (ON CONFLICT DO NOTHING) and read the winner's row instead of
+// failing with a duplicate-key error.
+func createWaterLogOnce(wl models.WaterLog, userID uuid.UUID, today string) models.WaterLog {
+	res := config.DB.Clauses(clause.OnConflict{DoNothing: true}).Create(&wl)
+	if res.Error == nil && res.RowsAffected > 0 {
+		return wl
+	}
+	var existing models.WaterLog
+	if err := config.DB.Where("user_id = ? AND log_date = ?", userID, today).First(&existing).Error; err == nil {
+		return existing
+	}
+	return wl
 }
 
 // GetTodayWaterLog retrieves or initializes today's water intake record
@@ -67,7 +85,7 @@ func GetTodayWaterLog(c echo.Context) error {
 			TargetGlasses:  targetGlasses,
 			TargetAmountMl: targetMl,
 		}
-		config.DB.Create(&waterLog)
+		waterLog = createWaterLogOnce(waterLog, userID, today)
 	}
 
 	var pct float64 = 0.0
@@ -148,7 +166,13 @@ func UpdateTodayWaterLog(c echo.Context) error {
 	}
 
 	if waterLog.LogID.String() == "00000000-0000-0000-0000-000000000000" || waterLog.CreatedAt.IsZero() {
-		config.DB.Create(&waterLog)
+		wanted := waterLog
+		waterLog = createWaterLogOnce(wanted, userID, today)
+		if waterLog.Glasses != wanted.Glasses || waterLog.AmountMl != wanted.AmountMl {
+			// Another request created today's row first: apply this request's values to it.
+			waterLog.Glasses, waterLog.AmountMl = wanted.Glasses, wanted.AmountMl
+			config.DB.Save(&waterLog)
+		}
 	} else {
 		config.DB.Save(&waterLog)
 	}
