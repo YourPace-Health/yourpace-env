@@ -1,11 +1,8 @@
 package handlers
 
 import (
-	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
-	"os"
 	"strings"
 	"time"
 
@@ -338,7 +335,7 @@ func PlanWorkoutInFreeTimeWithN8N(c echo.Context) error {
 
 	reply, err := services.CallGemini(prompt)
 	if err != nil {
-		reply = "[n8n Error] ไม่สามารถเชื่อมต่อกับ n8n AI ได้: " + err.Error()
+		reply = "[AI Error] ไม่สามารถเชื่อมต่อกับ AI ได้: " + err.Error()
 	}
 
 	// Parse and save schedules to DB & sync to Google Calendar
@@ -519,12 +516,6 @@ func GenerateWeeklyHealthRecap(c echo.Context) error {
 		Select("COUNT(*), COALESCE(SUM(burned_calories), 0)").
 		Row().Scan(&lastWeekCount, &lastWeekCalories)
 
-	// Call n8n webhook for intelligent coaching synthesis
-	n8nURL := os.Getenv("N8N_WORKOUT_PLAN_WEBHOOK_URL")
-	if n8nURL == "" {
-		n8nURL = "https://soranut.app.n8n.cloud/webhook-test/yourpace-mentor"
-	}
-
 	prompt := fmt.Sprintf(`คุณคือ AI Health & Fitness Mentor ส่วนตัวของแอป youPace
 ช่วยเขียนสรุปภาพรวมความคืบหน้าสุขภาพและให้กำลังใจรายสัปดาห์แก่ผู้ใช้ชื่อ: %s
 เป้าหมายสุขภาพ: %s
@@ -539,32 +530,10 @@ func GenerateWeeklyHealthRecap(c echo.Context) error {
 ตอบเป็นภาษาไทย ความยาวกระชับ 3-4 ย่อหน้าสั้นๆ พร้อมจัดหัวข้อให้อ่านง่าย มีอีโมจิน่ารัก`,
 		user.Username, user.FitnessGoal, thisWeekCount, thisWeekCalories, thisWeekMins, lastWeekCount, lastWeekCalories, user.Weight, user.TargetWeight)
 
-	n8nReq := map[string]interface{}{
-		"userId":          userID.String(),
-		"action":          "weekly_recap",
-		"message":         prompt,
-		"prompt":          prompt,
-		"thisWeekCount":   thisWeekCount,
-		"thisWeekCal":     thisWeekCalories,
-		"thisWeekMins":    thisWeekMins,
-		"lastWeekCal":     lastWeekCalories,
-		"user":            user,
-	}
-
+	// Ask Gemini for the coaching recap; on any failure the template below is used.
 	var aiRecapText string
-	reqBytes, _ := json.Marshal(n8nReq)
-	client := &http.Client{Timeout: 15 * time.Second}
-	if resp, err := client.Post(n8nURL, "application/json", strings.NewReader(string(reqBytes))); err == nil {
-		defer resp.Body.Close()
-		bodyBytes, _ := io.ReadAll(resp.Body)
-		var n8nResp map[string]interface{}
-		if json.Unmarshal(bodyBytes, &n8nResp) == nil {
-			if reply, ok := n8nResp["output"].(string); ok && reply != "" {
-				aiRecapText = reply
-			} else if reply, ok := n8nResp["reply"].(string); ok && reply != "" {
-				aiRecapText = reply
-			}
-		}
+	if reply, err := services.CallGemini(prompt); err == nil {
+		aiRecapText = strings.TrimSpace(reply)
 	}
 
 	if aiRecapText == "" {

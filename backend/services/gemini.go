@@ -1,10 +1,8 @@
 package services
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
 	"os"
@@ -50,155 +48,46 @@ type Candidate struct {
 	Content ContentPart `json:"content"`
 }
 
-func isUnparsedTemplate(s string) bool {
-	if strings.Contains(s, "{{") && (strings.Contains(s, "$json") || strings.Contains(s, "$")) {
-		return true
+// CallGemini sends a text prompt straight to the Gemini API (GEMINI_API_KEY / GEMINI_URL).
+func CallGemini(prompt string) (string, error) {
+	apiKey := strings.TrimSpace(os.Getenv("GEMINI_API_KEY"))
+	if apiKey == "" || apiKey == "YOUR_GEMINI_API_KEY" {
+		return "", fmt.Errorf("ยังไม่ได้ตั้งค่า GEMINI_API_KEY")
 	}
-	if strings.Contains(s, "_stage_") || strings.Contains(s, "_stage1") || strings.Contains(s, "_stage2") || strings.Contains(s, "_stage3") {
-		return true
-	}
-	return false
-}
-
-func extractStringFromJSON(data interface{}) string {
-	keys := []string{"chatResponse", "output", "response", "text", "message", "result", "reply", "content", "data"}
-
-	switch v := data.(type) {
-	case map[string]interface{}:
-		for _, key := range keys {
-			if val, ok := v[key]; ok {
-				if str, isStr := val.(string); isStr && str != "" {
-					return str
-				}
-			}
-		}
-		if nested, ok := v["json"]; ok {
-			if res := extractStringFromJSON(nested); res != "" {
-				return res
-			}
-		}
-	case []interface{}:
-		if len(v) > 0 {
-			return extractStringFromJSON(v[0])
-		}
-	case string:
-		return v
-	}
-	return ""
-}
-
-func callN8N(prompt string, urlStr string) (string, error) {
-	reqBody := map[string]string{
-		"prompt": prompt,
+	urlStr := os.Getenv("GEMINI_URL")
+	if urlStr == "" {
+		urlStr = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent"
 	}
 
+	requestURL := fmt.Sprintf("%s?key=%s", urlStr, apiKey)
+	reqBody := GeminiRequest{
+		Contents: []ContentPart{{Parts: []TextPart{{Text: prompt}}}},
+	}
 	jsonBytes, err := json.Marshal(reqBody)
 	if err != nil {
 		return "", err
 	}
 
-	client := &http.Client{Timeout: 60 * time.Second}
-	resp, err := client.Post(urlStr, "application/json", bytes.NewBuffer(jsonBytes))
+	client := &http.Client{Timeout: 30 * time.Second}
+	status, bodyBytes, err := postJSONWithRetry(client, requestURL, jsonBytes, 3)
 	if err != nil {
-		return "", err
+		log.Printf("Gemini API call failed: %v", err)
+		return "", fmt.Errorf("ไม่สามารถเชื่อมต่อกับ Gemini ได้: %w", err)
 	}
-	defer resp.Body.Close()
-
-	bodyBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", err
-	}
-
-	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
-		return "", fmt.Errorf("n8n API returned status %d: %s", resp.StatusCode, string(bodyBytes))
+	if status != http.StatusOK {
+		log.Printf("Gemini API call returned status %d, body: %s", status, string(bodyBytes))
+		return "", fmt.Errorf("Gemini ตอบกลับสถานะ %d", status)
 	}
 
-	var parsedData interface{}
-	if err := json.Unmarshal(bodyBytes, &parsedData); err == nil {
-		extracted := extractStringFromJSON(parsedData)
-		if extracted != "" {
-			extracted = strings.TrimSpace(extracted)
-			if isUnparsedTemplate(extracted) {
-				return "", fmt.Errorf("n8n ตอบกลับเป็น template expression ที่ยังไม่ได้ประมวลผล (%s) กรุณาตรวจสอบ Respond to Webhook node ใน n8n ให้เลือกโหมด Expression (fx)", extracted)
-			}
-			return extracted, nil
-		}
+	var geminiResp GeminiResponse
+	if err := json.Unmarshal(bodyBytes, &geminiResp); err != nil {
+		log.Printf("Gemini API call response unmarshal error: %v, body: %s", err, string(bodyBytes))
+		return "", fmt.Errorf("อ่านคำตอบจาก Gemini ไม่ได้: %w", err)
 	}
-
-	rawText := strings.TrimSpace(string(bodyBytes))
-	if rawText == "" {
-		return "", fmt.Errorf("n8n ตอบกลับเป็นข้อความว่างเปล่า")
+	if len(geminiResp.Candidates) == 0 || len(geminiResp.Candidates[0].Content.Parts) == 0 {
+		return "", fmt.Errorf("Gemini ไม่ได้ตอบกลับข้อความ")
 	}
-
-	if isUnparsedTemplate(rawText) {
-		return "", fmt.Errorf("n8n ตอบกลับเป็น template expression ที่ยังไม่ได้ประมวลผล (%s) กรุณาตรวจสอบ Respond to Webhook node ใน n8n ให้เลือกโหมด Expression (fx)", rawText)
-	}
-
-	return rawText, nil
-}
-
-func CallGemini(prompt string) (string, error) {
-	n8nURL := strings.TrimSpace(os.Getenv("N8N_URL"))
-	if n8nURL == "" {
-		n8nURL = "http://localhost:5678/webhook/yourpace-ai"
-	}
-
-	// 1. Try n8n URL
-	res, err := callN8N(prompt, n8nURL)
-	if err == nil && res != "" {
-		return res, nil
-	}
-
-	// 2. Try Docker container n8n URL if running inside Docker Compose
-	if strings.Contains(n8nURL, "localhost") {
-		dockerN8nURL := strings.Replace(n8nURL, "localhost", "n8n", 1)
-		resDocker, errDocker := callN8N(prompt, dockerN8nURL)
-		if errDocker == nil && resDocker != "" {
-			return resDocker, nil
-		}
-	}
-
-	// 3. If Gemini API Key is configured, try direct Gemini
-	apiKey := os.Getenv("GEMINI_API_KEY")
-	urlStr := os.Getenv("GEMINI_URL")
-	if apiKey != "" && apiKey != "YOUR_GEMINI_API_KEY" {
-		if urlStr == "" {
-			urlStr = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent"
-		}
-
-		requestURL := fmt.Sprintf("%s?key=%s", urlStr, apiKey)
-		reqBody := GeminiRequest{
-			Contents: []ContentPart{
-				{
-					Parts: []TextPart{
-						{Text: prompt},
-					},
-				},
-			},
-		}
-
-		jsonBytes, errMarshal := json.Marshal(reqBody)
-		if errMarshal == nil {
-			client := &http.Client{Timeout: 30 * time.Second}
-			status, bodyBytes, errPost := postJSONWithRetry(client, requestURL, jsonBytes, 3)
-			switch {
-			case errPost != nil:
-				log.Printf("Gemini API call failed: %v", errPost)
-			case status != http.StatusOK:
-				log.Printf("Gemini API call returned status %d, body: %s", status, string(bodyBytes))
-			default:
-				var geminiResp GeminiResponse
-				if errUnmarshal := json.Unmarshal(bodyBytes, &geminiResp); errUnmarshal != nil {
-					log.Printf("Gemini API call response unmarshal error: %v, body: %s", errUnmarshal, string(bodyBytes))
-				} else if len(geminiResp.Candidates) > 0 && len(geminiResp.Candidates[0].Content.Parts) > 0 {
-					return geminiResp.Candidates[0].Content.Parts[0].Text, nil
-				}
-			}
-		}
-	}
-
-	// 4. Return n8n error directly (Strictly no Mock Data!)
-	return "", fmt.Errorf("ไม่สามารถเชื่อมต่อกับ n8n ได้ (%v) กรุณาตรวจสอบว่าเปิดสวิตช์ Active Workflow ใน n8n แล้ว", err)
+	return geminiResp.Candidates[0].Content.Parts[0].Text, nil
 }
 
 
