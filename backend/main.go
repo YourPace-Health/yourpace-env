@@ -16,6 +16,7 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/labstack/echo/v4"
 	echoMiddleware "github.com/labstack/echo/v4/middleware"
+	"gorm.io/gorm"
 )
 
 func main() {
@@ -30,23 +31,7 @@ func main() {
 
 	// 3. Auto Migrate GORM Models
 	log.Println("Running Auto-Migration for database...")
-	err := db.AutoMigrate(
-		&models.User{},
-		&models.UserSetting{},
-		&models.Exercise{},
-		&models.FavExercise{},
-		&models.EmotionalCheckIn{},
-		&models.WorkoutSchedule{},
-		&models.WorkoutScheduleDetail{},
-		&models.MealLog{},
-		&models.Milestone{},
-		&models.Equipment{},
-		&models.UserGoogleToken{},
-		&models.UserHealthLog{},
-		&models.WaterLog{},
-		&models.WeightLog{},
-		&models.ChatMessage{},
-	)
+	err := autoMigrate(db)
 	if err != nil {
 		log.Fatalf("Auto-Migration failed: %v", err)
 	}
@@ -65,121 +50,7 @@ func main() {
 	// 4. Seed default equipment data
 	seedDefaultEquipments()
 
-	// 5. Initialize Echo Framework
-	e := echo.New()
-
-	// Middlewares
-	e.Use(echoMiddleware.Logger())
-	e.Use(echoMiddleware.Recover())
-	e.Use(echoMiddleware.CORSWithConfig(echoMiddleware.CORSConfig{
-		AllowOrigins: allowedOrigins(),
-		AllowMethods: []string{echo.GET, echo.PUT, echo.POST, echo.DELETE, echo.OPTIONS},
-		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
-	}))
-
-	registerHealthRoutes(e)
-
-	// Static route
-	e.Static("/uploads", "uploads")
-
-	// 6. Routes
-	// Public Auth Routes (No JWT middleware required)
-	authGroup := e.Group("/api/auth")
-	authGroup.Use(middleware.RateLimit(10))
-	authGroup.POST("/register", handlers.Register)
-	authGroup.POST("/login", handlers.Login)
-	authGroup.POST("/verify-otp", handlers.VerifyOTP)
-	authGroup.POST("/google", handlers.GoogleLogin)
-	authGroup.POST("/refresh", handlers.RefreshToken)
-	authGroup.POST("/request-otp", handlers.RequestOTP)
-	authGroup.POST("/magic-link", handlers.RequestMagicLink)
-	authGroup.POST("/verify-magic-link", handlers.VerifyMagicLink)
-
-	// Public Google Calendar Callback (OAuth redirect from browser - no JWT required)
-	e.GET("/api/calendar/callback", handlers.GoogleCalendarCallback)
-
-	apiGroup := e.Group("/api")
-	apiGroup.Use(echoMiddleware.BodyLimit("8M"))
-	apiGroup.Use(middleware.JWTMiddleware)
-
-	// Per-user limits on routes that call Gemini / n8n (costly upstreams)
-	aiLimit := middleware.RateLimit(20)
-
-	// User Profile & Settings
-	apiGroup.GET("/users/profile", handlers.GetUserProfile)
-	apiGroup.PUT("/users/profile", handlers.UpdateUserProfile)
-	apiGroup.GET("/users/health-profile", handlers.GetUserProfile)
-	apiGroup.PUT("/users/health-profile", handlers.UpdateUserProfile)
-	apiGroup.GET("/users/health-summary", handlers.GetHealthSummaryEndpoint)
-	apiGroup.POST("/users/health-logs", handlers.LogHealthMetric)
-	apiGroup.GET("/users/health-logs", handlers.GetHealthLogsHistory)
-	apiGroup.GET("/users/setting", handlers.GetUserSetting)
-	apiGroup.PUT("/users/setting", handlers.UpdateUserSetting)
-
-	// Water Intake Tracking
-	apiGroup.GET("/water/today", handlers.GetTodayWaterLog)
-	apiGroup.POST("/water/today", handlers.UpdateTodayWaterLog)
-	apiGroup.PUT("/water/today", handlers.UpdateTodayWaterLog)
-	apiGroup.GET("/water/history", handlers.GetWaterLogHistory)
-
-	// Google Calendar Integration
-	apiGroup.GET("/calendar/auth-url", handlers.GetGoogleAuthURL)
-	apiGroup.GET("/calendar/status", handlers.GetCalendarStatus)
-	apiGroup.DELETE("/calendar", handlers.DisconnectCalendar)
-	apiGroup.GET("/calendar/events", handlers.GetGoogleCalendarEvents)
-	apiGroup.DELETE("/calendar/events/workout", handlers.DeleteGoogleCalendarWorkoutEventsHandler)
-
-	// Exercises
-	apiGroup.GET("/exercises", handlers.GetAllExercises)
-	apiGroup.GET("/exercises/suggest", handlers.GetSuggestedExercises)
-	apiGroup.GET("/exercises/fav", handlers.GetFavExercises)
-	apiGroup.POST("/exercises/fav/:id", handlers.AddFavExercise)
-	apiGroup.DELETE("/exercises/fav/:id", handlers.RemoveFavExercise)
-	apiGroup.GET("/equipments", handlers.GetAllEquipments)
-
-	// Emotional Check-ins
-	apiGroup.POST("/checkin", handlers.CheckIn)
-	apiGroup.GET("/checkin/today", handlers.GetTodayCheckIn)
-	apiGroup.GET("/checkin/history", handlers.GetCheckInHistory)
-
-	// Schedules & Rescheduling
-	apiGroup.GET("/schedules", handlers.GetSchedules)
-	apiGroup.POST("/schedules/generate", handlers.GenerateWeeklySchedule)
-	apiGroup.PUT("/schedules/:id/status", handlers.UpdateScheduleStatus)
-	apiGroup.POST("/schedules/log-burn", handlers.LogCustomBurnWorkout)
-	apiGroup.POST("/schedules/reschedule", handlers.Reschedule)
-	apiGroup.DELETE("/schedules", handlers.DeleteAllSchedules)
-	apiGroup.DELETE("/schedules/:id", handlers.DeleteSchedule)
-
-	// Meals & AI Nutrition Tracker
-	apiGroup.POST("/meals/log", handlers.LogMeal)
-	apiGroup.POST("/meals/preview", handlers.AnalyzeMealPreview, aiLimit)
-	apiGroup.POST("/meals/analyze-photo", handlers.AnalyzeMealPhotoPreview, aiLimit)
-	apiGroup.GET("/meals/today", handlers.GetTodayMealsSummary)
-	apiGroup.GET("/meals/history", handlers.GetMealHistory)
-	apiGroup.GET("/meals/energy-balance", handlers.GetEnergyBalanceSummary)
-	apiGroup.GET("/meals/weekly-analytics", handlers.GetWeeklyNutritionAnalytics)
-	apiGroup.GET("/meals/coach-feedback", handlers.GetDailyNutritionCoachFeedback, aiLimit)
-	apiGroup.DELETE("/meals/:id", handlers.DeleteMeal)
-
-	// Health Dashboard
-	apiGroup.GET("/dashboard/summary", handlers.GetDashboardSummary)
-
-	// AI Fitness Mentor
-	apiGroup.POST("/mentor/chat", handlers.ChatWithMentor, aiLimit)
-	apiGroup.GET("/mentor/history", handlers.GetChatHistory)
-	apiGroup.DELETE("/mentor/history", handlers.ClearChatHistory)
-	apiGroup.POST("/mentor/n8n-plan", handlers.PlanWorkoutInFreeTimeWithN8N, aiLimit)
-	apiGroup.POST("/mentor/calculate-burn", handlers.CalculateBurnWithN8N, aiLimit)
-	apiGroup.GET("/mentor/weekly-recap", handlers.GenerateWeeklyHealthRecap, aiLimit)
-
-	// Health Progress & Weight Tracking
-	apiGroup.POST("/health/weight", handlers.LogWeight)
-	apiGroup.GET("/health/weight/history", handlers.GetWeightHistory)
-	apiGroup.GET("/health/progress-analytics", handlers.GetProgressAnalytics)
-
-	// Milestones
-	apiGroup.GET("/milestones", handlers.GetMilestones)
+	e := newApp()
 
 	// 7. Start Echo Server
 	port := os.Getenv("PORT")
@@ -260,4 +131,144 @@ func registerHealthRoutes(e *echo.Echo) {
 	}
 	e.Match([]string{http.MethodGet, http.MethodHead}, "/health", ok)
 	e.Match([]string{http.MethodGet, http.MethodHead}, "/", ok)
+}
+
+// autoMigrate creates or updates the tables for every model.
+func autoMigrate(db *gorm.DB) error {
+	return db.AutoMigrate(
+		&models.User{},
+		&models.UserSetting{},
+		&models.Exercise{},
+		&models.FavExercise{},
+		&models.EmotionalCheckIn{},
+		&models.WorkoutSchedule{},
+		&models.WorkoutScheduleDetail{},
+		&models.MealLog{},
+		&models.Milestone{},
+		&models.Equipment{},
+		&models.UserGoogleToken{},
+		&models.UserHealthLog{},
+		&models.WaterLog{},
+		&models.WeightLog{},
+		&models.ChatMessage{},
+	)
+}
+
+// newApp builds the Echo server: middleware, health probes and every API route.
+func newApp() *echo.Echo {
+	e := echo.New()
+
+	// Middlewares
+	e.Use(echoMiddleware.Logger())
+	e.Use(echoMiddleware.Recover())
+	e.Use(echoMiddleware.CORSWithConfig(echoMiddleware.CORSConfig{
+		AllowOrigins: allowedOrigins(),
+		AllowMethods: []string{echo.GET, echo.PUT, echo.POST, echo.DELETE, echo.OPTIONS},
+		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
+	}))
+
+	registerHealthRoutes(e)
+
+	// Static route
+	e.Static("/uploads", "uploads")
+
+	// 6. Routes
+	// Public Auth Routes (No JWT middleware required)
+	authGroup := e.Group("/api/auth")
+	authGroup.Use(middleware.RateLimit(10))
+	authGroup.POST("/register", handlers.Register)
+	authGroup.POST("/login", handlers.Login)
+	authGroup.POST("/verify-otp", handlers.VerifyOTP)
+	authGroup.POST("/google", handlers.GoogleLogin)
+	authGroup.POST("/refresh", handlers.RefreshToken)
+	authGroup.POST("/request-otp", handlers.RequestOTP)
+	authGroup.POST("/magic-link", handlers.RequestMagicLink)
+	authGroup.POST("/verify-magic-link", handlers.VerifyMagicLink)
+
+	// Public Google Calendar Callback (OAuth redirect from browser - no JWT required)
+	e.GET("/api/calendar/callback", handlers.GoogleCalendarCallback)
+
+	apiGroup := e.Group("/api")
+	apiGroup.Use(echoMiddleware.BodyLimit("8M"))
+	apiGroup.Use(middleware.JWTMiddleware)
+
+	// Per-user limits on routes that call Gemini (costly upstream)
+	aiLimit := middleware.RateLimit(20)
+
+	// User Profile & Settings
+	apiGroup.GET("/users/profile", handlers.GetUserProfile)
+	apiGroup.PUT("/users/profile", handlers.UpdateUserProfile)
+	apiGroup.GET("/users/health-profile", handlers.GetUserProfile)
+	apiGroup.PUT("/users/health-profile", handlers.UpdateUserProfile)
+	apiGroup.GET("/users/health-summary", handlers.GetHealthSummaryEndpoint)
+	apiGroup.POST("/users/health-logs", handlers.LogHealthMetric)
+	apiGroup.GET("/users/health-logs", handlers.GetHealthLogsHistory)
+	apiGroup.GET("/users/setting", handlers.GetUserSetting)
+	apiGroup.PUT("/users/setting", handlers.UpdateUserSetting)
+
+	// Water Intake Tracking
+	apiGroup.GET("/water/today", handlers.GetTodayWaterLog)
+	apiGroup.POST("/water/today", handlers.UpdateTodayWaterLog)
+	apiGroup.PUT("/water/today", handlers.UpdateTodayWaterLog)
+	apiGroup.GET("/water/history", handlers.GetWaterLogHistory)
+
+	// Google Calendar Integration
+	apiGroup.GET("/calendar/auth-url", handlers.GetGoogleAuthURL)
+	apiGroup.GET("/calendar/status", handlers.GetCalendarStatus)
+	apiGroup.DELETE("/calendar", handlers.DisconnectCalendar)
+	apiGroup.GET("/calendar/events", handlers.GetGoogleCalendarEvents)
+	apiGroup.DELETE("/calendar/events/workout", handlers.DeleteGoogleCalendarWorkoutEventsHandler)
+
+	// Exercises
+	apiGroup.GET("/exercises", handlers.GetAllExercises)
+	apiGroup.GET("/exercises/suggest", handlers.GetSuggestedExercises)
+	apiGroup.GET("/exercises/fav", handlers.GetFavExercises)
+	apiGroup.POST("/exercises/fav/:id", handlers.AddFavExercise)
+	apiGroup.DELETE("/exercises/fav/:id", handlers.RemoveFavExercise)
+	apiGroup.GET("/equipments", handlers.GetAllEquipments)
+
+	// Emotional Check-ins
+	apiGroup.POST("/checkin", handlers.CheckIn)
+	apiGroup.GET("/checkin/today", handlers.GetTodayCheckIn)
+	apiGroup.GET("/checkin/history", handlers.GetCheckInHistory)
+
+	// Schedules & Rescheduling
+	apiGroup.GET("/schedules", handlers.GetSchedules)
+	apiGroup.POST("/schedules/generate", handlers.GenerateWeeklySchedule)
+	apiGroup.PUT("/schedules/:id/status", handlers.UpdateScheduleStatus)
+	apiGroup.POST("/schedules/log-burn", handlers.LogCustomBurnWorkout)
+	apiGroup.POST("/schedules/reschedule", handlers.Reschedule)
+	apiGroup.DELETE("/schedules", handlers.DeleteAllSchedules)
+	apiGroup.DELETE("/schedules/:id", handlers.DeleteSchedule)
+
+	// Meals & AI Nutrition Tracker
+	apiGroup.POST("/meals/log", handlers.LogMeal)
+	apiGroup.POST("/meals/preview", handlers.AnalyzeMealPreview, aiLimit)
+	apiGroup.POST("/meals/analyze-photo", handlers.AnalyzeMealPhotoPreview, aiLimit)
+	apiGroup.GET("/meals/today", handlers.GetTodayMealsSummary)
+	apiGroup.GET("/meals/history", handlers.GetMealHistory)
+	apiGroup.GET("/meals/energy-balance", handlers.GetEnergyBalanceSummary)
+	apiGroup.GET("/meals/weekly-analytics", handlers.GetWeeklyNutritionAnalytics)
+	apiGroup.GET("/meals/coach-feedback", handlers.GetDailyNutritionCoachFeedback, aiLimit)
+	apiGroup.DELETE("/meals/:id", handlers.DeleteMeal)
+
+	// Health Dashboard
+	apiGroup.GET("/dashboard/summary", handlers.GetDashboardSummary)
+
+	// AI Fitness Mentor
+	apiGroup.POST("/mentor/chat", handlers.ChatWithMentor, aiLimit)
+	apiGroup.GET("/mentor/history", handlers.GetChatHistory)
+	apiGroup.DELETE("/mentor/history", handlers.ClearChatHistory)
+	apiGroup.POST("/mentor/n8n-plan", handlers.PlanWorkoutInFreeTimeWithN8N, aiLimit)
+	apiGroup.POST("/mentor/calculate-burn", handlers.CalculateBurnWithN8N, aiLimit)
+	apiGroup.GET("/mentor/weekly-recap", handlers.GenerateWeeklyHealthRecap, aiLimit)
+
+	// Health Progress & Weight Tracking
+	apiGroup.POST("/health/weight", handlers.LogWeight)
+	apiGroup.GET("/health/weight/history", handlers.GetWeightHistory)
+	apiGroup.GET("/health/progress-analytics", handlers.GetProgressAnalytics)
+
+	// Milestones
+	apiGroup.GET("/milestones", handlers.GetMilestones)
+	return e
 }
