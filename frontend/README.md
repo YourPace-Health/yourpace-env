@@ -80,3 +80,6 @@ npm test       # Vitest (hooks, components, helpers)
 npm run build
 ```
 `.npmrc` sets `legacy-peer-deps` because `eslint-plugin-jsx-a11y` has not declared ESLint 10 support yet.
+
+## Deploying
+Vercel is connected to this repo (production branch `main`, Root Directory `frontend`), so a push to `main` deploys the frontend. To deploy by hand with the CLI, run `vercel deploy --prod` from the repository root, not from `frontend/`.

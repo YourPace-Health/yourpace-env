@@ -120,3 +120,9 @@ with in-process fakes for Redis, Gemini and Google. To run them against real Pos
 instead, set `TEST_DATABASE_URL` (key=value form, for example
 `host=localhost port=5432 user=postgres password=test dbname=youpace_test sslmode=disable`).
 The Postgres-only tests for the SQL migrations and advisory lock are skipped without it.
+
+---
+
+## Deployment notes
+- **Backend:** Render service `yourpace-backend` builds `main` (Auto-Deploy: On Commit). Config lives in `render.yaml`; secrets are set in the Render dashboard.
+- **Frontend:** Vercel project `yourpace` deploys `main` from the `frontend` directory.
